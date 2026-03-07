@@ -25,7 +25,7 @@ use Modules\Entertainment\Transformers\MoviesResourceV2;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\Entertainment\Models\Watchlist;
 use App\Models\User;
-
+use Illuminate\Support\Facades\DB;
 
 class PerviewPaymentController extends Controller
 {

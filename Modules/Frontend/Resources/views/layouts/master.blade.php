@@ -11,24 +11,7 @@
     <link rel="apple-touch-icon" sizes="76x76" href="{{ GetSettingValue('favicon') ?? asset('img/logo/favicon.png')  }}">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     
-    @if(session()->get('dir') == 'rtl')
-        <style>
-            /* Black overlay to hide English before translation loads */
-            #gt-blackout {
-                position: fixed;
-                inset: 0;
-                background: #000;
-                z-index: 9999999;
-                opacity: 1;
-                transition: opacity 0.5s ease;
-                pointer-events: none;
-            }
-        </style>
-        
-        <script>
-            document.write('<div id="gt-blackout"></div>');
-        </script>
-    @endif
+
 
     @include('frontend::layouts.head')
 
@@ -44,13 +27,101 @@
     <link rel="stylesheet" href="{{ asset('phosphor-icons/fill/style.css') }}">
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    {{-- Moved Google Translate Logic to Head for Faster Execution --}}
+    <script>
+        function setArabicCookie() {
+            document.cookie = "googtrans=/en/ar; path=/;";
+            document.cookie = "googtrans=/en/ar; path=/; domain=." + window.location.hostname + ";";
+        }
+        function clearTranslateCookie() {
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname + ";";
+        }
+        
+        // Immediate check for Arabic cookie to force hide body if needed
+        (function() {
+            if (document.cookie.indexOf('googtrans=/en/ar') > -1) {
+                document.documentElement.classList.add('force-hide-rtl');
+                document.documentElement.setAttribute('dir', 'rtl'); // Force dir=rtl early
+            }
+        })();
+    </script>
+
+    @if(session()->get('dir') == 'rtl')
+        <script>setArabicCookie();</script>
+    @else
+        <script>clearTranslateCookie();</script>
+    @endif
+
+    <script>
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'en',
+                includedLanguages: 'ar',
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+
+        // Handle Arabic Translation Transition
+        document.addEventListener("DOMContentLoaded", function() {
+            // Check either dir="rtl" or our fallback class
+            if (document.documentElement.dir === 'rtl' || document.documentElement.classList.contains('force-hide-rtl')) {
+                const showContent = () => {
+                    document.body.classList.add('translation-loaded');
+                    document.documentElement.classList.remove('force-hide-rtl'); // Clean up fallback
+                };
+
+                // Safety timeout (2.5s max)
+                const safetyTimeout = setTimeout(showContent, 2500);
+
+                // Observe for Google Translate completion
+                const observer = new MutationObserver(function(mutations) {
+                    if (document.documentElement.classList.contains('translated-rtl')) {
+                        clearTimeout(safetyTimeout);
+                        // Small delay to ensure text render
+                        setTimeout(showContent, 100); 
+                        observer.disconnect();
+                    }
+                });
+
+                observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+            }
+        });
+    </script>
     <script async src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
     @include('frontend::components.partials.head.plugins')
     @stack('after-styles')
     {{-- Vite CSS --}}
     {{-- {{ module_vite('build-frontend', 'resources/assets/sass/app.scss') }} --}}
-   <style>
+    <style>
+        /* Base styles */
+        html {
+            background-color: #000000 !important; /* Prevent white flash */
+        }
+        
+        /* Arabic Translation Transition - Aggressive Hiding */
+        html[dir="rtl"] body {
+            opacity: 0 !important;
+            visibility: hidden !important;
+            pointer-events: none !important;
+        }
+        
+        /* Show state */
+        html[dir="rtl"] body.translation-loaded {
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+            transition: opacity 0.8s ease-in-out !important;
+        }
+
+        /* Cookie-based fallback hiding (in case dir attribute is delayed) */
+        html.force-hide-rtl body {
+            opacity: 0 !important;
+            visibility: hidden !important;
+        }
+
         header {
             position: fixed !important;
             top: 0;
@@ -323,41 +394,8 @@ document.addEventListener('DOMContentLoaded', function() {
     {{-- {{ module_vite('build-frontend', 'resources/assets/js/app.js') }} --}}
     @stack('after-scripts')
     
-    <script>
-function setArabicCookie() {
-    document.cookie = "googtrans=/en/ar; path=/;";
-    document.cookie = "googtrans=/en/ar; path=/; domain=." + window.location.hostname + ";";
-}
-</script>
-<script>
-function clearTranslateCookie() {
-    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname + ";";
-}
-</script>
-
-@if(session()->get('dir') == 'rtl')
-<script>
-    setArabicCookie();
-</script>
-@else
-<script>
-    clearTranslateCookie();
-</script>
-@endif
-
-
 <div id="google_translate_element"></div>
-<script>
-function googleTranslateElementInit() {
-    new google.translate.TranslateElement({
-        pageLanguage: 'en',
-        includedLanguages: 'ar',
-        autoDisplay: false
-    }, 'google_translate_element');
-}
-</script>
-<script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
     <script>
 
     const currencyFormat = (amount) => {
@@ -495,36 +533,7 @@ document.addEventListener("mouseup", (e) => {
 });
 
 </script>
-@if(session()->get('dir') == 'rtl')
-<script>
-    // Remove blackout once translation is applied
-    function waitForArabic() {
-        const arabicRegex = /[\u0600-\u06FF]/;
 
-        // 1. Check DOM text for Arabic
-        const bodyText = document.body.innerText || "";
-
-        if (arabicRegex.test(bodyText)) {
-            fadeOutBlack();
-            return;
-        }
-
-        // 2. Fail-safe: force hide after 3 seconds
-        setTimeout(() => fadeOutBlack(), 800);
-    }
-
-    function fadeOutBlack() {
-        const el = document.getElementById("gt-blackout");
-        if (!el) return;
-
-        el.style.opacity = "0";
-        setTimeout(() => el.remove(), 2000); // remove fully after fade
-    }
-
-    // Start checking after a tiny delay (GT needs a moment)
-    setTimeout(waitForArabic, 1000);
-</script>
-@endif
 
 </body>
 </html>

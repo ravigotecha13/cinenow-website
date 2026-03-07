@@ -2,14 +2,15 @@
 
 namespace App\Providers;
 
+use App\Models\Setting;
 use App\Services\ChatGTPService;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Translation\Translator;
-use Illuminate\Console\Events\CommandStarting;
-use Illuminate\Support\Facades\Event;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -75,5 +76,23 @@ class AppServiceProvider extends ServiceProvider
 
             return $trans;
         });
+
+        if (dbConnectionStatus() && Schema::hasTable('settings') && file_exists(storage_path('installed'))) {
+            $settings = Setting::getAllSettings()
+                ->whereIn('name', ['google_client_id', 'google_client_secret', 'google_redirect_uri'])
+                ->pluck('val', 'name');
+
+            $googleClientId = $settings->get('google_client_id');
+            $googleClientSecret = $settings->get('google_client_secret');
+            $googleRedirectUri = $settings->get('google_redirect_uri');
+
+            if (!empty($googleClientId) && !empty($googleClientSecret)) {
+                config([
+                    'services.google.client_id' => $googleClientId,
+                    'services.google.client_secret' => $googleClientSecret,
+                    'services.google.redirect' => $googleRedirectUri ?: config('services.google.redirect'),
+                ]);
+            }
+        }
     }
 }

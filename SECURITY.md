@@ -1,3 +1,3 @@
 ## Reporting a Vulnerability
 
-- Contact To blackdeep204@gmail.com
+- Contact To hello@iqonicdesign

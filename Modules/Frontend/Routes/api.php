@@ -6,6 +6,7 @@ use Modules\Frontend\Http\Controllers\DashboardController;
 use Modules\Frontend\Http\Controllers\PerviewPaymentController;
 use Modules\Frontend\Http\Controllers\API\TransactionController;
 use Modules\Frontend\Http\Controllers\TvShowController;
+use Modules\Frontend\Http\Controllers\PpvWatchController;
 
 /*
     |--------------------------------------------------------------------------
@@ -16,7 +17,7 @@ use Modules\Frontend\Http\Controllers\TvShowController;
     | routes are loaded by the RouteServiceProvider within a group which
     | is assigned the "api" middleware group. Enjoy building your API!
     |
-*/
+*/ 
 
 
 Route::get('top-10-movie', [DashboardController::class, 'Top10Movies']);
@@ -56,8 +57,14 @@ Route::post('save-payment-pay-per-view', [PerviewPaymentController::class, 'save
 Route::post('start-date', [PerviewPaymentController::class, 'setStartDate']);
 Route::get('/transaction-history', [TransactionController::class, 'transactionHistory']);
 
+Route::post('ppv/check-access', [PpvWatchController::class, 'checkAccess']);
+Route::post('ppv/save-progress', [PpvWatchController::class, 'saveProgress']);
+Route::post('ppv/consume-ticket', [PpvWatchController::class, 'consumeTicket']);
+
 Route::get('/check-episode-purchase', [TvShowController::class, 'checkEpisodePurchase'])->name('check.episode.purchase');
 Route::get('/check-movie-purchase', [TvShowController::class, 'checkMoviePurchase'])->name('check.movie.purchase');
+
+
 
 
 

@@ -14,7 +14,7 @@ class PpvWatchController
      */
     public function checkAccess(Request $request)
     {
-        $userId = auth()->id();
+        $userId = auth()->id() ?? auth('sanctum')->id();
         if (!$userId) {
             return response()->json(['status' => 'unauthenticated'], 401);
         }
@@ -29,8 +29,14 @@ class PpvWatchController
             ->first();
 
         if (!$ticket) {
+            $hasHistory = DB::table('ppv_tickets')
+                ->where('user_id', $userId)
+                ->where('entertainment_id', $entertainmentId)
+                ->exists();
+
             return response()->json([
-                'status' => 'purchase_required'
+                'status' => 'purchase_required',
+                'is_repurchase' => $hasHistory
             ]);
         }
 
@@ -54,7 +60,6 @@ class PpvWatchController
             'resume_time' => $resumeSeconds,
             'watched_percentage' => $watchedPercent,
             'show_repurchase' => $watchedPercent >= 25,
-            'watched_percentage' => (int)($progress->watched_percentage ?? 0),
         ]);
     }
 
@@ -64,7 +69,7 @@ class PpvWatchController
      */
     public function saveProgress(Request $request)
     {
-        $userId = auth()->id();
+        $userId = auth()->id() ?? auth('sanctum')->id();
         if (!$userId) {
             return response()->json(['status' => 'unauthenticated'], 401);
         }
@@ -125,7 +130,7 @@ class PpvWatchController
      */
     public function consumeTicket(Request $request)
     {
-        $userId = auth()->id();
+        $userId = auth()->id() ?? auth('sanctum')->id();
         if (!$userId) {
             return response()->json(['status' => 'unauthenticated'], 401);
         }
