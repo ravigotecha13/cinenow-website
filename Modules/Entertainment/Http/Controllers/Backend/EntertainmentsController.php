@@ -635,15 +635,15 @@ public function update(EntertainmentRequest $request, $id)
         // Get all reviews for statistics (without pagination)
         $allReviews = $data->entertainmentReviews;
 
-       foreach ($data->entertainmentTalentMappings as $talentMapping) {
-    $talentProfile = $talentMapping->talentprofile;
+        foreach ($data->entertainmentTalentMappings as $talentMapping) {
+            $talentProfile = $talentMapping->talentprofile;
 
-    if ($talentProfile) {
-        if (in_array($talentProfile->type, ['actor', 'director'])) {
-            $talentProfile->file_url =  setBaseUrlWithFileName($talentProfile->file_url);
+            if ($talentProfile) {
+                if (in_array($talentProfile->type, ['actor', 'director'])) {
+                    $talentProfile->file_url =  setBaseUrlWithFileName($talentProfile->file_url);
+                }
+            }
         }
-    }
-}
         $data->poster_url =setBaseUrlWithFileName($data->poster_url);
 
         $data->formatted_release_date = Carbon::parse($data->release_date)->format('d M, Y');

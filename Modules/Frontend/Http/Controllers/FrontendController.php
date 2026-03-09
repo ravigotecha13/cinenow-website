@@ -118,7 +118,7 @@ class FrontendController extends Controller
             Cache::put($cacheKey, $sliders);
         }
         
-        $todayDate = date('Y-m-d');
+    $todayDate = date('Y-m-d');
     $nextWeek = date('Y-m-d', strtotime('+7 days'));
     
     $comingSoonMovies = Entertainment::where('start_date', '>', $todayDate)
@@ -135,7 +135,7 @@ class FrontendController extends Controller
         // dd($sliders);
     
         return view('frontend::index', compact('user_id', 'sliders', 'comingSoonMovies',
-        'leavingSoonMovies',));
+        'leavingSoonMovies'));
     }
 
     // public function checkWatchCount(Request $request)

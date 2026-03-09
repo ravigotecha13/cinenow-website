@@ -68,6 +68,8 @@ class MovieDetailDataResourceV2  extends JsonResource
         return [
 
             'id' => $this->id,
+            'trailer_url_type' => $this->trailer_url_type ?? null,
+            'trailer_url' => isset($this->trailer_url_type) && $this->trailer_url_type === 'Local' ? setBaseUrlWithFileName($this->trailer_url) : ($this->trailer_url ?? null),
             'enable_quality' => $this->enable_quality,
             'is_download' => $this->is_download ?? false,
             'download_status' => $this->download_status,
@@ -81,7 +83,7 @@ class MovieDetailDataResourceV2  extends JsonResource
             'total_review' => $this->total_review ?? 0,
             'reviews' => ReviewResource::collection($this->reviews),
             'three_reviews' => ReviewResource::collection($this->reviews->take(3)),
-            'video_links' => $this->entertainmentStreamContentMappings ?? null,
+            'video_links' => isset($this->trailer_url_type) && $this->trailer_url_type === 'Local' ? setBaseUrlWithFileName($this->trailer_url) : ($this->trailer_url ?? null),
             'subtitle_info' => $this->enable_subtitle == 1 ? SubtitleResource::collection($this->subtitles) : null,
             'casts' => CastCrewListResource::collection($casts),
             'directors' => CastCrewListResource::collection($directors),

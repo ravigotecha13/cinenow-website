@@ -335,7 +335,6 @@ class MovieController extends Controller
                 ->get()
                 ->except($id);
 
-// dd($movie);
             $data = new MovieDetailResource($movie);
             $data['more_items'] = MoviesResource::collection($more_items);
 
