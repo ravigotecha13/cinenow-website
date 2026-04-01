@@ -1049,7 +1049,8 @@ class EntertainmentsController extends Controller
 
         $movieId = $request->movie_id;
 
-        $cacheKey = 'movie_v2' . $movieId . '_'.$request->profile_id;
+        $locale = app()->getLocale();
+        $cacheKey = 'movie_v2' . $movieId . '_' . ($request->profile_id ?? '0') . '_' . $locale;
 
         $responseData = Cache::get($cacheKey);
 
@@ -1059,7 +1060,15 @@ class EntertainmentsController extends Controller
             $profile_id = isset($request->profile_id) ? $request->profile_id : 0;
             $device_id = isset($request->device_id) ? $request->device_id : 0;
 
-            $movie = Entertainment::get_movie($movieId,$user_id,$profile_id,$device_id)->first();
+            $movie = Entertainment::get_movie($movieId,$user_id,$profile_id,$device_id)
+                ->with([
+                    'entertainmentTalentMappings.talentprofile',
+                    'entertainmentStreamContentMappings',
+                    'entertainmentDownloadMappings',
+                    'entertainmentReviews',
+                    'subtitles',
+                ])
+                ->first();
 
             $movie['reviews'] = $movie->entertainmentReviews ?? null;
 

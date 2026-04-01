@@ -33,23 +33,9 @@
                                     <label class="form-label" for="payment-method">{{ __('frontend.choose_payment_method') }}:</label>
                                     <select id="payment-method" name="payment_method" class="form-select">
                                         <option value="" selected disabled>{{ __('frontend.select_payment_method') }}</option>
-                                        @php
-                                            $payment_methods = [
-                                            'str_payment_method' => 'stripe',
-                                            'razor_payment_method' => 'razorpay',
-                                            'paystack_payment_method' => 'paystack',
-                                            'paypal_payment_method' => 'paypal',
-                                            'flutterwave_payment_method' => 'flutterwave',
-                                            'cinet_payment_method' => 'cinet',
-                                            'sadad_payment_method' => 'sadad',
-                                            'airtel_payment_method' => 'airtel',
-                                            'phonepe_payment_method' => 'phonepe',
-                                            'midtrans_payment_method' => 'midtrans'
-                                        ];
-                                        @endphp
-                                        @foreach ($payment_methods as $setting => $method)
-                                            @if (setting($setting) == 1)
-                                                <option value="{{ strtolower($method) }}">{{ __('frontend.' . $method) }}</option>
+                                        @foreach (config('payment_gateways.gateways', []) as $gatewayCode => $gateway)
+                                            @if (setting($gateway['enabled_setting'] ?? '') == 1)
+                                                <option value="{{ $gatewayCode }}">{{ __('frontend.' . $gatewayCode) }}</option>
                                             @endif
                                         @endforeach
                                     </select>

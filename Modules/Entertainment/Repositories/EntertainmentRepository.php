@@ -44,12 +44,42 @@ class EntertainmentRepository implements EntertainmentRepositoryInterface
 
     public function create(array $data)
     {
+        // Always store English title in `name` and Arabic title in `name_ar`
+        if (isset($data['name_en'])) {
+            $data['name'] = $data['name_en'];
+        }
+        if (isset($data['name_ar'])) {
+            $data['name_ar'] = $data['name_ar'];
+        }
+        // Always store English description in `description` and Arabic in `description_ar`
+        if (isset($data['description_en'])) {
+            $data['description'] = $data['description_en'];
+        }
+        if (isset($data['description_ar'])) {
+            $data['description_ar'] = $data['description_ar'];
+        }
+
         return Entertainment::create($data);
     }
 
     public function update($id, array $data)
     {
         $entertainment = Entertainment::findOrFail($id);
+
+        // Always store English title in `name` and Arabic title in `name_ar`
+        if (isset($data['name_en'])) {
+            $data['name'] = $data['name_en'];
+        }
+        if (isset($data['name_ar'])) {
+            $data['name_ar'] = $data['name_ar'];
+        }
+        // Always store English description in `description` and Arabic in `description_ar`
+        if (isset($data['description_en'])) {
+            $data['description'] = $data['description_en'];
+        }
+        if (isset($data['description_ar'])) {
+            $data['description_ar'] = $data['description_ar'];
+        }
 
         if ($data['movie_access'] == 'free') {
             $data['plan_id'] = null;

@@ -210,6 +210,10 @@
                 $trailer = $item['video_trailer_url'] ?? null;
                 $poster = $item['thumbnail_url'] ?? $item['poster_url'] ?? null;
                 $price = $item['price'] ?? null;
+                $displayName = app()->getLocale() === 'ar' ? ($item['name_ar'] ?? $item['name'] ?? '') : ($item['name'] ?? '');
+                $displayDescription = app()->getLocale() === 'ar'
+                    ? ($item['description_ar'] ?? $item['description'] ?? '')
+                    : ($item['description'] ?? '');
             @endphp
 
             @if(isenablemodule($slider['type']) == 1)
@@ -253,8 +257,8 @@
                                             </ul>
                                         </div>
 
-                                        <h4 class="mb-2">{{ $item['name'] ?? '' }}</h4>
-                                        <p class="mb-0 font-size-14 line-count-3">{!! $item['description'] ?? '' !!}</p>
+                                        <h4 class="mb-2">{{ $displayName }}</h4>
+                                        <p class="mb-0 font-size-14 line-count-3">{!! $displayDescription !!}</p>
 
                                         <ul class="list-inline mt-4 mb-0 mx-0 p-0 d-flex align-items-center flex-wrap gap-3">
                                             @if(!empty($item['release_date']))
@@ -309,10 +313,8 @@
                                                         route('movie-details', ['id' => $item['id']])))
                                                     }}" class="btn btn-primary play-now-btn">
                                                         <span class="d-flex align-items-center justify-content-center gap-2">
-                                                          
-                                                             {{ __('frontend.watch_now') }}
-                                                                    {{ Currency::format($price - $price * ($item['discount'] / 100), 2) }}
-                                                           
+                                                            {{ __('frontend.get_ticket') }}
+                                                            {{ Currency::format($price - $price * (($item['discount'] ?? 0) / 100), 2) }}
                                                         </span>
                                                     </a>
                                                 </div>

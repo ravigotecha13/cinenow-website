@@ -29,6 +29,7 @@ use PayPal\Api\Payment;
 use PayPal\Api\PaymentExecution;
 use PayPal\Rest\ApiContext;
 use PayPal\Auth\OAuthTokenCredential;
+use App\Services\HyperPayService;
 
 class PaymentController extends Controller
 {
@@ -86,6 +87,7 @@ class PaymentController extends Controller
             'airtel' => 'AirtelPayment',
             'phonepe' => 'PhonePePayment',
             'midtrans' => 'MidtransPayment',
+            'hyperpay' => 'HyperPayPayment',
         ];
 
         if (array_key_exists($paymentMethod, $paymentHandlers)) {
@@ -97,6 +99,43 @@ class PaymentController extends Controller
             return response()->json(['error' => 'Invalid payment method.'], 400);
         }
         return redirect()->back()->withErrors('Invalid payment method.');
+    }
+
+    protected function HyperPayPayment(Request $request, $price = null, $promotionId = null)
+    {
+        if ((int) setting('hyperpay_payment_method') !== 1) {
+            return redirect()->back()->withErrors('HyperPay is disabled.');
+        }
+
+        $amount = $request->input('price');
+        $currency = GetpaymentMethod('hyperpay_currency') ?: GetcurrentCurrency();
+        $paymentType = GetpaymentMethod('hyperpay_payment_type') ?: 'DB';
+        $brands = GetpaymentMethod('hyperpay_brands') ?: 'VISA MASTER';
+
+        $service = app(HyperPayService::class);
+        $checkout = $service->createCheckout([
+            'amount' => number_format((float) $amount, 2, '.', ''),
+            'currency' => $currency,
+            'paymentType' => $paymentType,
+            'merchantTransactionId' => 'sub_' . ($request->input('plan_id') ?? '0') . '_' . time(),
+        ]);
+
+        $checkoutId = $checkout['id'] ?? null;
+        if (! $checkoutId) {
+            return redirect()->back()->withErrors('HyperPay checkout failed.');
+        }
+
+        return view('frontend::payments.hyperpay_checkout', [
+            'purpose' => 'subscription',
+            'checkoutId' => $checkoutId,
+            'baseUrl' => rtrim((string) GetpaymentMethod('hyperpay_base_url'), '/'),
+            'brands' => $brands,
+            'resultRouteName' => 'payment.success',
+            'amount' => $amount,
+            'currency' => $currency,
+            'plan_id' => $request->input('plan_id'),
+            'promotion_id' => $request->input('promotion_id'),
+        ]);
     }
 
 
@@ -577,8 +616,40 @@ class PaymentController extends Controller
                 return $this->handlePhonePeSuccess($request);
             case 'midtrans':
                 return $this->MidtransPayment($request);
+            case 'hyperpay':
+                return $this->handleHyperPaySuccess($request);
             default:
                 return redirect('/')->with('error', 'Invalid payment gateway.');
+        }
+    }
+
+    protected function handleHyperPaySuccess(Request $request)
+    {
+        try {
+            $resourcePath = $request->query('resourcePath') ?? $request->input('resourcePath');
+            if (! $resourcePath) {
+                return redirect('/')->with('error', 'HyperPay: missing resourcePath.');
+            }
+
+            $service = app(HyperPayService::class);
+            $status = $service->fetchPaymentStatusByResourcePath($resourcePath);
+
+            if (! $service->isPaid($status)) {
+                $code = data_get($status, 'result.code');
+                $desc = data_get($status, 'result.description');
+                return redirect('/')->with('error', 'HyperPay payment not successful. ' . ($code ? "{$code} " : '') . ($desc ?? ''));
+            }
+
+            $transactionId = data_get($status, 'id') ?? ($request->input('checkout_id') ?? uniqid('hyperpay_', true));
+            return $this->handlePaymentSuccess(
+                $request->input('plan_id'),
+                $request->input('amount'),
+                'hyperpay',
+                $transactionId,
+                $request->input('promotion_id')
+            );
+        } catch (\Throwable $e) {
+            return redirect('/')->with('error', 'HyperPay error: ' . $e->getMessage());
         }
     }
 

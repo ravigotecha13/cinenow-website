@@ -6,6 +6,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Carbon\Carbon;
 use Modules\Entertainment\Models\Entertainment;
 use Modules\Entertainment\Models\Watchlist;
+use Modules\Entertainment\Support\EntertainmentLocale;
 
 class CommanResource extends JsonResource
 {
@@ -42,12 +43,12 @@ class CommanResource extends JsonResource
         // dd($this->id,auth()->user());
         return [
             'id' => $this->id,
-            'name' => $this->name,
+            'name' => EntertainmentLocale::name($this->resource),
             'type' => $this->type,
             'movie_access' => in_array($this->type, ['movie', 'tvshow']) ? $this->movie_access : $this->access,
             'plan_id' => $this->plan_id,
             'plan_level' => $this->plan->level ?? 0,
-            'description' => strip_tags($this->description),
+            'description' => strip_tags((string) EntertainmentLocale::description($this->resource)),
             'trailer_url_type' => $this->trailer_url_type,
             'genres' => $genre_data,
             'release_date' => $this->release_date,

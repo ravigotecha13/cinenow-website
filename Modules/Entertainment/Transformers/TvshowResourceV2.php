@@ -7,6 +7,7 @@ use Modules\Genres\Transformers\GenresResource;
 use Modules\Subscriptions\Transformers\PlanResource;
 use Modules\Subscriptions\Models\Plan;
 use Modules\Entertainment\Models\Entertainment;
+use Modules\Entertainment\Support\EntertainmentLocale;
 
 class TvshowResourceV2 extends JsonResource
 {
@@ -20,8 +21,12 @@ class TvshowResourceV2 extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => $this->name,
-            'description' => strip_tags($this->description),
+            'name' => EntertainmentLocale::name($this->resource),
+            'name_en' => $this->name_en ?? $this->name,
+            'name_ar' => $this->name_ar,
+            'description' => strip_tags((string) EntertainmentLocale::description($this->resource)),
+            'description_en' => strip_tags((string) ($this->description_en ?? $this->description)),
+            'description_ar' => strip_tags((string) $this->description_ar),
             'trailer_url_type' => $this->trailer_url_type,
             'type' => $this->type,
             'trailer_url' => $this->trailer_url_type=='Local' ? setBaseUrlWithFileName($this->trailer_url) : $this->trailer_url,

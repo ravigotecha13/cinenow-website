@@ -981,6 +981,106 @@ class SettingSeeder extends Seeder
                 'deleted_at' => NULL,
             ),
 
+            // HyperPay defaults (disabled)
+            67 =>
+            array (
+                'id' => 68,
+                'name' => 'hyperpay_payment_method',
+                'val' => '0',
+                'type' => 'hyperpayPayment',
+                'datatype' => NULL,
+                'created_by' => 2,
+                'updated_by' => 2,
+                'deleted_by' => NULL,
+                'created_at' => '2024-08-08 10:38:37',
+                'updated_at' => '2024-08-08 10:38:37',
+                'deleted_at' => NULL,
+            ),
+            68 =>
+            array (
+                'id' => 69,
+                'name' => 'hyperpay_entity_id',
+                'val' => '',
+                'type' => 'hyperpay_payment_method',
+                'datatype' => NULL,
+                'created_by' => 2,
+                'updated_by' => 2,
+                'deleted_by' => NULL,
+                'created_at' => '2024-08-08 10:38:37',
+                'updated_at' => '2024-08-08 10:38:37',
+                'deleted_at' => NULL,
+            ),
+            69 =>
+            array (
+                'id' => 70,
+                'name' => 'hyperpay_access_token',
+                'val' => '',
+                'type' => 'hyperpay_payment_method',
+                'datatype' => NULL,
+                'created_by' => 2,
+                'updated_by' => 2,
+                'deleted_by' => NULL,
+                'created_at' => '2024-08-08 10:38:37',
+                'updated_at' => '2024-08-08 10:38:37',
+                'deleted_at' => NULL,
+            ),
+            70 =>
+            array (
+                'id' => 71,
+                'name' => 'hyperpay_base_url',
+                'val' => 'https://eu-test.oppwa.com',
+                'type' => 'hyperpay_payment_method',
+                'datatype' => NULL,
+                'created_by' => 2,
+                'updated_by' => 2,
+                'deleted_by' => NULL,
+                'created_at' => '2024-08-08 10:38:37',
+                'updated_at' => '2024-08-08 10:38:37',
+                'deleted_at' => NULL,
+            ),
+            71 =>
+            array (
+                'id' => 72,
+                'name' => 'hyperpay_currency',
+                'val' => 'SAR',
+                'type' => 'hyperpay_payment_method',
+                'datatype' => NULL,
+                'created_by' => 2,
+                'updated_by' => 2,
+                'deleted_by' => NULL,
+                'created_at' => '2024-08-08 10:38:37',
+                'updated_at' => '2024-08-08 10:38:37',
+                'deleted_at' => NULL,
+            ),
+            72 =>
+            array (
+                'id' => 73,
+                'name' => 'hyperpay_payment_type',
+                'val' => 'DB',
+                'type' => 'hyperpay_payment_method',
+                'datatype' => NULL,
+                'created_by' => 2,
+                'updated_by' => 2,
+                'deleted_by' => NULL,
+                'created_at' => '2024-08-08 10:38:37',
+                'updated_at' => '2024-08-08 10:38:37',
+                'deleted_at' => NULL,
+            ),
+            73 =>
+            array (
+                'id' => 74,
+                'name' => 'hyperpay_brands',
+                'val' => 'VISA MASTER',
+                'type' => 'hyperpay_payment_method',
+                'datatype' => NULL,
+                'created_by' => 2,
+                'updated_by' => 2,
+                'deleted_by' => NULL,
+                'created_at' => '2024-08-08 10:38:37',
+                'updated_at' => '2024-08-08 10:38:37',
+                'deleted_at' => NULL,
+            ),
+
 
         ));
         foreach ($data as $setting) {

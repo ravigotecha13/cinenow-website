@@ -7,6 +7,7 @@ use Modules\Genres\Transformers\GenresResource;
 use Modules\Season\Models\Season;
 use Modules\Entertainment\Models\UserReminder;
 use Auth;
+use Modules\Entertainment\Support\EntertainmentLocale;
 
 class ComingSoonResource extends JsonResource
 {
@@ -34,8 +35,8 @@ class ComingSoonResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => $this->name,
-            'description' => strip_tags($this->description),
+            'name' => EntertainmentLocale::name($this->resource),
+            'description' => strip_tags((string) EntertainmentLocale::description($this->resource)),
             'trailer_url_type' => $this->trailer_url_type,
             'episode_id' => $entertainment->id ?? null,
             'type' => $this->type,

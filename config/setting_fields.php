@@ -1329,6 +1329,75 @@ return [
             'value' => '', // default value if you want
             'help' => 'Paste the only the Measurement Id of Google Analytics stream.', // Help text for the input field.
         ],
+
+        // hyperpay
+        [
+            'type' => 'checkbox',
+            'data' => 'hyperpayPayment',
+            'name' => 'hyperpay_payment_method',
+            'label' => 'Is Type',
+            'rules' => '',
+            'class' => '',
+            'value' => '0',
+        ],
+        [
+            'type' => 'text',
+            'data' => 'hyperpay_payment_method',
+            'name' => 'hyperpay_entity_id',
+            'label' => 'hyperpayPayment',
+            'rules' => 'required|max:191',
+            'class' => '',
+            'value' => '',
+        ],
+        [
+            'type' => 'text',
+            'data' => 'hyperpay_payment_method',
+            'name' => 'hyperpay_access_token',
+            'label' => 'hyperpayPayment',
+            'rules' => 'required|max:191',
+            'class' => '',
+            'value' => '',
+        ],
+        [
+            'type' => 'text',
+            'data' => 'hyperpay_payment_method',
+            'name' => 'hyperpay_base_url',
+            'label' => 'hyperpayPayment',
+            'rules' => 'required|max:191',
+            'class' => '',
+            'value' => 'https://eu-test.oppwa.com',
+            'help' => 'HyperPay base URL. Use test: https://eu-test.oppwa.com or live: https://eu-prod.oppwa.com',
+        ],
+        [
+            'type' => 'text',
+            'data' => 'hyperpay_payment_method',
+            'name' => 'hyperpay_currency',
+            'label' => 'hyperpayPayment',
+            'rules' => 'required|max:10',
+            'class' => '',
+            'value' => 'SAR',
+        ],
+        [
+            'type' => 'text',
+            'data' => 'hyperpay_payment_method',
+            'name' => 'hyperpay_payment_type',
+            'label' => 'hyperpayPayment',
+            'rules' => 'required|max:10',
+            'class' => '',
+            'value' => 'DB',
+            'help' => 'HyperPay paymentType. Common values: DB (debit) or PA (preauth).',
+        ],
+        [
+            'type' => 'text',
+            'data' => 'hyperpay_payment_method',
+            'name' => 'hyperpay_brands',
+            'label' => 'hyperpayPayment',
+            'rules' => 'nullable|max:191',
+            'class' => '',
+            'value' => 'VISA MASTER',
+            'help' => 'Space-separated brands (e.g. VISA MASTER MADA APPLEPAY).',
+        ],
+
         [
             'type' => 'checkbox', // input fields type
             'data' => 'inapppurchase', // data type, string, int, boolean

@@ -28,7 +28,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    {{-- Moved Google Translate Logic to Head for Faster Execution --}}
+    {{-- Google Translate: allow translating DB content when Arabic fields are missing.
+         We still protect any already-Arabic text by adding the `notranslate` class via JS (see protectArabicText()). --}}
     <script>
         function setArabicCookie() {
             document.cookie = "googtrans=/en/ar; path=/;";
@@ -38,58 +39,56 @@
             document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname + ";";
         }
-        
-        // Immediate check for Arabic cookie to force hide body if needed
-        (function() {
-            if (document.cookie.indexOf('googtrans=/en/ar') > -1) {
-                document.documentElement.classList.add('force-hide-rtl');
-                document.documentElement.setAttribute('dir', 'rtl'); // Force dir=rtl early
-            }
-        })();
     </script>
 
-    @if(session()->get('dir') == 'rtl')
+    @php
+        $shouldTranslateToArabic = (app()->getLocale() === 'ar') || (session()->get('dir') == 'rtl');
+    @endphp
+
+    @if($shouldTranslateToArabic)
         <script>setArabicCookie();</script>
     @else
         <script>clearTranslateCookie();</script>
     @endif
 
-    <script>
-        function googleTranslateElementInit() {
-            new google.translate.TranslateElement({
-                pageLanguage: 'en',
-                includedLanguages: 'ar',
-                autoDisplay: false
-            }, 'google_translate_element');
-        }
-
-        // Handle Arabic Translation Transition
-        document.addEventListener("DOMContentLoaded", function() {
-            // Check either dir="rtl" or our fallback class
-            if (document.documentElement.dir === 'rtl' || document.documentElement.classList.contains('force-hide-rtl')) {
-                const showContent = () => {
-                    document.body.classList.add('translation-loaded');
-                    document.documentElement.classList.remove('force-hide-rtl'); // Clean up fallback
-                };
-
-                // Safety timeout (2.5s max)
-                const safetyTimeout = setTimeout(showContent, 2500);
-
-                // Observe for Google Translate completion
-                const observer = new MutationObserver(function(mutations) {
-                    if (document.documentElement.classList.contains('translated-rtl')) {
-                        clearTimeout(safetyTimeout);
-                        // Small delay to ensure text render
-                        setTimeout(showContent, 100); 
-                        observer.disconnect();
-                    }
-                });
-
-                observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    @if($shouldTranslateToArabic)
+        <script>
+            (function() {
+                if (document.cookie.indexOf('googtrans=/en/ar') > -1) {
+                    document.documentElement.classList.add('force-hide-rtl');
+                    document.documentElement.setAttribute('dir', 'rtl');
+                }
+            })();
+        </script>
+        <script>
+            function googleTranslateElementInit() {
+                new google.translate.TranslateElement({
+                    pageLanguage: 'en',
+                    includedLanguages: 'ar',
+                    autoDisplay: false
+                }, 'google_translate_element');
             }
-        });
-    </script>
-    <script async src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+            document.addEventListener("DOMContentLoaded", function() {
+                if (document.documentElement.dir === 'rtl' || document.documentElement.classList.contains('force-hide-rtl')) {
+                    const showContent = () => {
+                        document.body.classList.add('translation-loaded');
+                        document.documentElement.classList.remove('force-hide-rtl');
+                    };
+                    showContent();
+                }
+            });
+        </script>
+        <script async src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+    @else
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                if (document.documentElement.dir === 'rtl') {
+                    document.body.classList.add('translation-loaded');
+                }
+            });
+        </script>
+    @endif
 
     @include('frontend::components.partials.head.plugins')
     @stack('after-styles')
@@ -101,11 +100,11 @@
             background-color: #000000 !important; /* Prevent white flash */
         }
         
-        /* Arabic Translation Transition - Aggressive Hiding */
+        /* Arabic pages should render immediately (no blocking hide) */
         html[dir="rtl"] body {
-            opacity: 0 !important;
-            visibility: hidden !important;
-            pointer-events: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
         }
         
         /* Show state */
@@ -116,10 +115,10 @@
             transition: opacity 0.8s ease-in-out !important;
         }
 
-        /* Cookie-based fallback hiding (in case dir attribute is delayed) */
+        /* Cookie fallback should not block rendering */
         html.force-hide-rtl body {
-            opacity: 0 !important;
-            visibility: hidden !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
 
         header {

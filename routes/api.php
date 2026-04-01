@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\API\AuthController;
 use App\Http\Controllers\Backend\API\DashboardController;
 use App\Http\Controllers\Backend\API\NotificationsController;
 use App\Http\Controllers\Backend\API\SettingController as APISettingController;
+use App\Http\Controllers\Backend\API\HyperPayController;
 use Modules\Frontend\Http\Controllers\PerviewPaymentController;
 use Modules\Frontend\Http\Controllers\QueryOptimizeController;
 
@@ -93,6 +94,11 @@ Route::group(['middleware' => 'auth:sanctum'], function () {
     Route::post('/update-parental-lock', [AuthController::class, 'changeParentalLock'])->name('update-parental-lock');
     // Route::post('/link-tv', [TvAuthController::class, 'linkTv'])->name('link-tv');
     Route::post('/tv/confrim-session', [TvAuthController::class, 'confirmSession'])->name('confirmSession');
+
+    Route::prefix('payments/hyperpay')->group(function () {
+        Route::post('/checkout', [HyperPayController::class, 'checkout']);
+        Route::get('/status', [HyperPayController::class, 'status']);
+    });
 
 });
 Route::get('app-configuration', [APISettingController::class, 'appConfiguraton']);

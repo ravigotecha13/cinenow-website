@@ -1,4 +1,7 @@
 <div class="detail-page-info section-spacing">
+    @php
+        $displayName = app()->getLocale() === 'ar' ? ($data['name_ar'] ?? $data['name'] ?? '') : ($data['name'] ?? '');
+    @endphp
     <div class="container-fluid">
 
         <!-- Episode Name Display -->
@@ -39,7 +42,7 @@
                                                     <a href="https://www.facebook.com/sharer?u={{ urlencode(Request::url()) }}"
                                                         target="_blank" rel="noopener noreferrer" class="share-ico"><i
                                                             class="ph ph-facebook-logo"></i></a>
-                                                    <a href="https://twitter.com/intent/tweet?text={{ urlencode($data['name']) }}&url={{ urlencode(Request::url()) }}"
+                                                    <a href="https://twitter.com/intent/tweet?text={{ urlencode($displayName) }}&url={{ urlencode(Request::url()) }}"
                                                         target="_blank" rel="noopener noreferrer" class="share-ico"><i
                                                             class="ph ph-x-logo"></i></a>
                                                     <a href="#" data-link="{{ Request::url() }}"
@@ -237,7 +240,7 @@
             </div>
 
             <!-- Movie Title -->
-            <h4 class="fw-bold mb-2">{{ $data['name'] }}</h4>
+            <h4 class="fw-bold mb-2">{{ $displayName }}</h4>
 
             <!-- Movie Metadata -->
             <ul class="list-inline mb-4 d-flex flex-wrap gap-4">
@@ -346,7 +349,7 @@
             </div>
 
             <!-- Movie Title -->
-            <h4 class="fw-bold mb-2">{{ $data['name'] }}</h4>
+            <h4 class="fw-bold mb-2">{{ $displayName }}</h4>
 
             <!-- Movie Metadata -->
             <ul class="list-inline mb-4 d-flex flex-wrap gap-4">

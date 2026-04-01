@@ -84,6 +84,15 @@ $showRepay   = $activeTicket && $watchedPercent >= 25 && $watchedPercent < 98;
 @endphp
 
 @php
+    $displayName = app()->getLocale() === 'ar'
+        ? ($data['name_ar'] ?? $data['name'] ?? '')
+        : ($data['name'] ?? '');
+    $displayDescription = app()->getLocale() === 'ar'
+        ? ($data['description_ar'] ?? $data['description'] ?? '')
+        : ($data['description'] ?? '');
+@endphp
+
+@php
 $profileId = getCurrentProfile($userId, request());
 @endphp
 
@@ -126,15 +135,15 @@ $profileId = getCurrentProfile($userId, request());
         <div class="movie-overlay">
             <div class="movie-overlay-content">
 
-                <h1 class="movie-title">{{ $data['name'] }}</h1>
-                <p class="movie-description">{!! $data['description'] !!}</p>
+                <h1 class="movie-title">{{ $displayName }}</h1>
+                <p class="movie-description">{!! $displayDescription !!}</p>
 
                 <div class="play-button-wrapper">
 
                     {{-- COMING SOON --}}
                     @if (!$isReleased)
                         <button class="btn btn-primary" disabled>
-                            <i class="fa-solid fa-clock me-2"></i> Coming Soon
+                            <i class="fa-solid fa-clock me-2"></i> {{ __('frontend.coming_soon') }}
                         </button>
                 
                     {{-- PAY PER VIEW MOVIE --}}
@@ -145,13 +154,13 @@ $profileId = getCurrentProfile($userId, request());
                             <a href="{{ route('pay-per-view.paymentform', ['id'=>$entertainmentId,'type'=>$contentType]) }}"
                                class="btn btn-primary">
                                 <i class="fa-solid fa-ticket me-2"></i>
-                                Get Ticket
+                                {{ __('frontend.get_ticket') }}
                                 <span class="ms-2">{{ Currency::format($finalPrice,2) }}</span>
                             </a>
                 
                         {{-- PURCHASED --}}
                         @else
-                           <button id="watchNowBtn"
+                            <button id="watchNowBtn"
                                 class="btn btn-primary btn-watch-now me-2"
                                 data-entertainment-id="{{ $entertainmentId }}"
                                 data-entertainment-type="{{ $contentType }}"
@@ -161,13 +170,13 @@ $profileId = getCurrentProfile($userId, request());
                                 data-video-url="{{ $video_url }}"
                                 data-quality-options='{{ $qualityOptionsJson }}'
                                 data-subtitle-info='{{ $subtitleInfoJson }}'>
-                                {{ $watchedPercent > 0 ? 'Continue Watching' : 'Watch Now' }}
+                                {{ $watchedPercent > 0 ? __('frontend.continue_watching') : __('frontend.watch_now') }}
                             </button>
 
                             @if ($watchedPercent >= 25)
                                 <a href="{{ route('pay-per-view.paymentform', ['id'=>$entertainmentId,'type'=>$contentType]) }}"
                                    class="btn btn-primary">
-                                    <i class="fa-solid fa-ticket me-2"></i> Get Ticket Again
+                                    <i class="fa-solid fa-ticket me-2"></i> {{ __('frontend.get_ticket_again') }}
                                 </a>
                             @endif
 
@@ -184,7 +193,7 @@ $profileId = getCurrentProfile($userId, request());
         data-video-url="{{ $video_url }}"
         data-quality-options='{{ $qualityOptionsJson }}'
         data-subtitle-info='{{ $subtitleInfoJson }}'>
-    Watch Now
+    {{ __('frontend.watch_now') }}
 </button>
 
                     @endif

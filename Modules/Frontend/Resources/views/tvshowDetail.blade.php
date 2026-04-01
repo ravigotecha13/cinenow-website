@@ -3,7 +3,7 @@
 @section('content')
 
 <div id="thumbnail-section">
-    @include('frontend::components.section.thumbnail',  ['data' => $data['trailer_url'] ,'type'=>$data['trailer_url_type'],'thumbnail_image'=>$data['thumbnail_image'],'subtitle_info' => '', 'content_type' => 'tvshow', 'content_id' => $data['id'], 'video_type' => $data['video_upload_type'], 'content_video_type'=>'trailer'])
+    @include('frontend::components.section.thumbnail', ['data' => $data, 'content_type' => 'tvshow'])
 </div>
 
 <div id="detail-section">

@@ -15,6 +15,7 @@ use Modules\Subscriptions\Models\Plan;
 use Carbon\Carbon;
 use Modules\Episode\Models\Episode;
 use Modules\Subscriptions\Models\Subscription;
+use Modules\Entertainment\Support\EntertainmentLocale;
 
 class TvshowDetailResource extends JsonResource
 {
@@ -78,8 +79,12 @@ class TvshowDetailResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => $this->name,
-            'description' => strip_tags($this->description),
+            'name' => EntertainmentLocale::name($this->resource),
+            'name_en' => $this->name_en ?? $this->name,
+            'name_ar' => $this->name_ar,
+            'description' => strip_tags((string) EntertainmentLocale::description($this->resource)),
+            'description_en' => strip_tags((string) ($this->description_en ?? $this->description)),
+            'description_ar' => strip_tags((string) $this->description_ar),
             'trailer_url_type' => $this->trailer_url_type,
             'type' => $this->type,
             'trailer_url' => $this->trailer_url_type=='Local' ? setBaseUrlWithFileName($this->trailer_url) : $this->trailer_url,

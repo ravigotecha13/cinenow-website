@@ -86,6 +86,14 @@ public function store(EntertainmentRequest $request)
     // Get all request data
     $data = $request->all();
 
+    // Keep legacy columns in sync with localized inputs
+    $data['name'] = $request->input('name_en');
+    $data['description'] = $request->input('description_en');
+    $data['name_en'] = $request->input('name_en');
+    $data['name_ar'] = $request->input('name_ar');
+    $data['description_en'] = $request->input('description_en');
+    $data['description_ar'] = $request->input('description_ar');
+
     // Handle movie access and related options
     if ($data['movie_access'] == "pay-per-view") {
         $data['download_status'] = 0;
@@ -371,6 +379,14 @@ public function update(EntertainmentRequest $request, $id)
 
     $requestData = $request->all();
 
+    // Keep legacy columns in sync with localized inputs
+    $request_data['name'] = $request->input('name_en');
+    $request_data['description'] = $request->input('description_en');
+    $request_data['name_en'] = $request->input('name_en');
+    $request_data['name_ar'] = $request->input('name_ar');
+    $request_data['description_en'] = $request->input('description_en');
+    $request_data['description_ar'] = $request->input('description_ar');
+
     // Handle movie access and related options
     if ($request_data['movie_access'] == "pay-per-view") {
         $request_data['download_status'] = 0;
@@ -635,15 +651,15 @@ public function update(EntertainmentRequest $request, $id)
         // Get all reviews for statistics (without pagination)
         $allReviews = $data->entertainmentReviews;
 
-        foreach ($data->entertainmentTalentMappings as $talentMapping) {
-            $talentProfile = $talentMapping->talentprofile;
+       foreach ($data->entertainmentTalentMappings as $talentMapping) {
+    $talentProfile = $talentMapping->talentprofile;
 
-            if ($talentProfile) {
-                if (in_array($talentProfile->type, ['actor', 'director'])) {
-                    $talentProfile->file_url =  setBaseUrlWithFileName($talentProfile->file_url);
-                }
-            }
+    if ($talentProfile) {
+        if (in_array($talentProfile->type, ['actor', 'director'])) {
+            $talentProfile->file_url =  setBaseUrlWithFileName($talentProfile->file_url);
         }
+    }
+}
         $data->poster_url =setBaseUrlWithFileName($data->poster_url);
 
         $data->formatted_release_date = Carbon::parse($data->release_date)->format('d M, Y');

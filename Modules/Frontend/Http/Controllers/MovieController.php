@@ -249,7 +249,7 @@ class MovieController extends Controller
 
         $movieId = $id;
         $userId = auth()->id();
-        $cacheKey = 'movie_' . $movieId;
+        $cacheKey = 'movie_' . $movieId . '_' . app()->getLocale();
 
         $data = Cache::get($cacheKey);
 
@@ -335,6 +335,7 @@ class MovieController extends Controller
                 ->get()
                 ->except($id);
 
+// dd($movie);
             $data = new MovieDetailResource($movie);
             $data['more_items'] = MoviesResource::collection($more_items);
 

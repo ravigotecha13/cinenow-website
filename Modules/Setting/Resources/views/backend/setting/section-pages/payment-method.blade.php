@@ -474,6 +474,93 @@
                 </div>
             </div>
 
+            {{-- HyperPay --}}
+            <div class="form-group border-bottom pb-3">
+                <div class="d-flex justify-content-between align-items-center">
+                    <label class="form-label m-0" for="payment_method_hyperpay">HyperPay</label>
+                    <input type="hidden" value="0" name="hyperpay_payment_method">
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input toggle-input" data-toggle-target="#hyperpay-fields" value="1"
+                            name="hyperpay_payment_method" id="payment_method_hyperpay" type="checkbox"
+                            {{ old('hyperpay_payment_method', $settings['hyperpay_payment_method'] ?? 0) == 1 ? 'checked' : '' }} />
+                    </div>
+                </div>
+            </div>
+            <div id="hyperpay-fields"
+                class="ps-3 {{ old('hyperpay_payment_method', $settings['hyperpay_payment_method'] ?? 0) == 1 ? '' : 'd-none' }}">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label" for="hyperpay_entity_id">Entity ID</label>
+                            <input type="text" class="form-control @error('hyperpay_entity_id') is-invalid @enderror"
+                                name="hyperpay_entity_id" id="hyperpay_entity_id"
+                                value="{{ old('hyperpay_entity_id', $settings['hyperpay_entity_id'] ?? '') }}">
+                            @error('hyperpay_entity_id')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label" for="hyperpay_access_token">Access Token</label>
+                            <input type="text" class="form-control @error('hyperpay_access_token') is-invalid @enderror"
+                                name="hyperpay_access_token" id="hyperpay_access_token"
+                                value="{{ old('hyperpay_access_token', $settings['hyperpay_access_token'] ?? '') }}">
+                            @error('hyperpay_access_token')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label" for="hyperpay_base_url">Base URL</label>
+                            <input type="text" class="form-control @error('hyperpay_base_url') is-invalid @enderror"
+                                name="hyperpay_base_url" id="hyperpay_base_url"
+                                value="{{ old('hyperpay_base_url', $settings['hyperpay_base_url'] ?? 'https://eu-test.oppwa.com') }}">
+                            @error('hyperpay_base_url')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                            <small class="text-muted d-block mt-1">Test: https://eu-test.oppwa.com | Live: https://eu-prod.oppwa.com</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label" for="hyperpay_currency">Currency</label>
+                            <input type="text" class="form-control @error('hyperpay_currency') is-invalid @enderror"
+                                name="hyperpay_currency" id="hyperpay_currency"
+                                value="{{ old('hyperpay_currency', $settings['hyperpay_currency'] ?? 'SAR') }}">
+                            @error('hyperpay_currency')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label" for="hyperpay_payment_type">Payment Type</label>
+                            <input type="text" class="form-control @error('hyperpay_payment_type') is-invalid @enderror"
+                                name="hyperpay_payment_type" id="hyperpay_payment_type"
+                                value="{{ old('hyperpay_payment_type', $settings['hyperpay_payment_type'] ?? 'DB') }}">
+                            @error('hyperpay_payment_type')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                            <small class="text-muted d-block mt-1">Common values: DB (debit) or PA (preauth)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label" for="hyperpay_brands">Brands</label>
+                            <input type="text" class="form-control @error('hyperpay_brands') is-invalid @enderror"
+                                name="hyperpay_brands" id="hyperpay_brands"
+                                value="{{ old('hyperpay_brands', $settings['hyperpay_brands'] ?? 'VISA MASTER') }}">
+                            @error('hyperpay_brands')
+                                <div class="text-danger">{{ $message }}</div>
+                            @enderror
+                            <small class="text-muted d-block mt-1">Space-separated: VISA MASTER MADA APPLEPAY</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {{-- In App Purchase --}}
             <div class="form-group border-bottom pb-3">
                 <div class="d-flex justify-content-between align-items-center">

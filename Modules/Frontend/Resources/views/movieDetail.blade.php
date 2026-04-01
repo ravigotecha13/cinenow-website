@@ -1,6 +1,11 @@
 @extends('frontend::layouts.master')
 
 @section('content')
+    @php
+        $displayName = app()->getLocale() === 'ar'
+            ? ($data['name_ar'] ?? $data['name'] ?? '')
+            : ($data['name'] ?? '');
+    @endphp
     <div id="thumbnail-section">
 
         @if ($continue_watch === true)
@@ -108,7 +113,7 @@
             @include('frontend::components.section.review_list', [
                 'data' => $data['three_reviews'],
                 'your_review' => $data['your_review'],
-                'title' => $data['name'],
+                'title' => $displayName,
                 'total_review' => count($data['reviews']),
             ])
         </div>

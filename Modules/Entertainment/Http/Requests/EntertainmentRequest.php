@@ -7,11 +7,24 @@ use Illuminate\Validation\Rule;
 
 class EntertainmentRequest extends FormRequest
 {
+    protected function prepareForValidation()
+    {
+        $nameEn = $this->input('name_en');
+        $descriptionEn = $this->input('description_en');
+
+        $this->merge([
+            'name' => $nameEn ?: $this->input('name'),
+            'description' => $descriptionEn ?: $this->input('description'),
+        ]);
+    }
+
     public function rules()
     {
         $id = request()->id;
         $rules = [
             'name' => ['required'],
+            'name_en' => ['required', 'string'],
+            'name_ar' => ['required', 'string'],
             'movie_access' => 'required',
             'language' => ['required'],
             'genres' => ['required'],
@@ -22,6 +35,8 @@ class EntertainmentRequest extends FormRequest
             'duration' => ['required'],
             // 'release_date' => ['required'],
             'description' => ['required', 'string'],
+            'description_en' => ['required', 'string'],
+            'description_ar' => ['required', 'string'],
         ];
 
         $movieAccess = $this->input('movie_access');
@@ -64,6 +79,8 @@ class EntertainmentRequest extends FormRequest
     {
         return [
             'name.required' => 'Name is required.',
+            'name_en.required' => 'English title is required.',
+            'name_ar.required' => 'Arabic title is required.',
             'language.required' => 'Language is required.',
             'genres.required' => 'Genres are required.',
             'actors.required' => 'Actors are required.',
@@ -72,6 +89,8 @@ class EntertainmentRequest extends FormRequest
             'video_upload_type.required' => 'Video Type is required.',
             'release_date.required' => 'Release Date is required.',
             'description.required' => 'Description is required.',
+            'description_en.required' => 'English description is required.',
+            'description_ar.required' => 'Arabic description is required.',
             'IMDb_rating.required' => 'IMDb rating is required.',
             'IMDb_rating.numeric' => 'IMDb rating must be a number.',
             'IMDb_rating.min' => 'IMDb rating must be at least 1.',

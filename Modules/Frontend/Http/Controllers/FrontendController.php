@@ -84,9 +84,8 @@ class FrontendController extends Controller
     public function index(Request $request)
     {
         $user_id = auth()->id();
-        $cacheKey = 'slider';
-        Cache::flush();
-    
+        $cacheKey = 'slider_'.app()->getLocale();
+
         $sliders = Cache::get($cacheKey);
         if (!$sliders) {
             $bannerList = Banner::where('banner_for', 'home')
@@ -118,24 +117,24 @@ class FrontendController extends Controller
             Cache::put($cacheKey, $sliders);
         }
         
-    $todayDate = date('Y-m-d');
-    $nextWeek = date('Y-m-d', strtotime('+7 days'));
-    
-    $comingSoonMovies = Entertainment::where('start_date', '>', $todayDate)
-        ->where('status', 1)
-        ->limit(12)
-        ->get();
-    
-    $leavingSoonMovies = Entertainment::whereBetween('end_date', [$todayDate, $nextWeek])
-        ->where('status', 1)
-        ->limit(12)
-        ->get();
+        $todayDate = date('Y-m-d');
+        $nextWeek = date('Y-m-d', strtotime('+7 days'));
+        
+        $comingSoonMovies = Entertainment::where('start_date', '>', $todayDate)
+            ->where('status', 1)
+            ->limit(12)
+            ->get();
+        
+        $leavingSoonMovies = Entertainment::whereBetween('end_date', [$todayDate, $nextWeek])
+            ->where('status', 1)
+            ->limit(12)
+            ->get();
     
         // Debug to verify
         // dd($sliders);
     
         return view('frontend::index', compact('user_id', 'sliders', 'comingSoonMovies',
-        'leavingSoonMovies'));
+        'leavingSoonMovies',));
     }
 
     // public function checkWatchCount(Request $request)

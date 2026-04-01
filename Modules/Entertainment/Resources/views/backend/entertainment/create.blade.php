@@ -99,13 +99,21 @@
                 </div>
                 <!-- <div class="row"> -->
                 <div class="col-md-4 col-lg-4 mb-3">
-                    {{ html()->label(__('movie.lbl_name') . ' <span class="text-danger">*</span>', 'name')->class('form-label') }}
-                    {{ html()->text('name')->attribute('value', old('name'))->placeholder(__('placeholder.lbl_movie_name'))->class('form-control')->attribute('required', 'required') }}
+                    {{ html()->label('Title (EN) <span class="text-danger">*</span>', 'name_en')->class('form-label') }}
+                    {{ html()->text('name_en')->attribute('value', old('name_en'))->placeholder('Enter English title')->class('form-control')->attribute('required', 'required') }}
                     <span class="text-danger" id="error_msg"></span>
-                    @error('name')
+                    @error('name_en')
                         <span class="text-danger">{{ $message }}</span>
                     @enderror
-                    <div class="invalid-feedback" id="name-error">Name field is required</div>
+                    <div class="invalid-feedback" id="name-error">English title is required</div>
+                </div>
+                <div class="col-md-4 col-lg-4 mb-3">
+                    {{ html()->label('Title (AR) <span class="text-danger">*</span>', 'name_ar')->class('form-label') }}
+                    {{ html()->text('name_ar')->attribute('value', old('name_ar'))->placeholder('Enter Arabic title')->class('form-control')->attribute('required', 'required')->attribute('dir', 'rtl') }}
+                    @error('name_ar')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
+                    <div class="invalid-feedback">Arabic title is required</div>
                 </div>
                 <div class="col-md-4 col-lg-4 mb-3">
                     {{ html()->label(__('movie.lbl_trailer_url_type') . ' <span class="text-danger">*</span>', 'type')->class('form-label') }}
@@ -207,16 +215,24 @@
                 </div>
                 <div class="col-lg-12">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        {{ html()->label(__('movie.lbl_description') . ' <span class="text-danger">*</span>', 'description')->class('form-label mb-0') }}
+                        {{ html()->label('Description (EN) <span class="text-danger">*</span>', 'description_en')->class('form-label mb-0') }}
                         <span class="text-primary cursor-pointer" id="GenrateDescription"><i class="ph ph-info"
                                 data-bs-toggle="tooltip" title="{{ __('messages.chatgpt_info') }}"></i>
                             {{ __('messages.lbl_chatgpt') }}</span>
                     </div>
-                    {{ html()->textarea('description', old('description'))->class('form-control')->id('description')->placeholder(__('placeholder.lbl_movie_description'))->attribute('required', 'required')->rows(5) }}
-                    @error('description')
+                    {{ html()->textarea('description_en', old('description_en'))->class('form-control')->id('description')->placeholder('Enter English description')->attribute('required', 'required')->rows(5) }}
+                    @error('description_en')
                         <span class="text-danger">{{ $message }}</span>
                     @enderror
-                    <div class="invalid-feedback" id="desc-error">Description field is required</div>
+                    <div class="invalid-feedback" id="desc-error">English description is required</div>
+                </div>
+                <div class="col-lg-12">
+                    {{ html()->label('Description (AR) <span class="text-danger">*</span>', 'description_ar')->class('form-label mb-2') }}
+                    {{ html()->textarea('description_ar', old('description_ar'))->class('form-control')->id('description_ar')->placeholder('Enter Arabic description')->attribute('required', 'required')->attribute('dir', 'rtl')->rows(5) }}
+                    @error('description_ar')
+                        <span class="text-danger">{{ $message }}</span>
+                    @enderror
+                    <div class="invalid-feedback">Arabic description is required</div>
                 </div>
                 <div class="col-md-6 col-lg-4">
                     {{ html()->label(__('movie.lbl_movie_access'), 'movie_access')->class('form-label') }}
@@ -1093,7 +1109,11 @@
                 var formData = new FormData(this);
 
                 // Add TinyMCE content to formData
+                formData.append('description_en', tinymce.get('description').getContent());
                 formData.append('description', tinymce.get('description').getContent());
+                if (tinymce.get('description_ar')) {
+                    formData.append('description_ar', tinymce.get('description_ar').getContent());
+                }
 
                 // Add CSRF token
                 formData.append('_token', '{{ csrf_token() }}');
@@ -1288,7 +1308,7 @@
         });
 
         tinymce.init({
-            selector: '#description',
+            selector: '#description,#description_ar',
             plugins: 'link image code',
             toolbar: 'undo redo | styleselect | bold italic strikethrough forecolor backcolor | link | alignleft aligncenter alignright alignjustify | removeformat | code | image',
             setup: function(editor) {
@@ -1636,7 +1656,7 @@
                             $('#selectedImage').attr('src', data.thumbnail_url).show();
                             $('#selectedPosterImage').attr('src', data.poster_url).show();
                             $('#selectedPosterTvImage').attr('src', data.poster_url).show();
-                            $('#name').val(data.name);
+                            $('#name_en').val(data.name);
                             // $('#description').val(data.description);
                             tinymce.get('description').setContent(data.description)
                             $('#trailer_url_type').val(data.trailer_url_type).trigger('change');
@@ -1842,7 +1862,7 @@
                 e.preventDefault();
 
                 var description = $('#description').val();
-                var name = $('#name').val();
+                var name = $('#name_en').val();
 
                 var generate_discription = "{{ route('backend.movies.generate-description') }}";
                 generate_discription = generate_discription.replace('amp;', '');

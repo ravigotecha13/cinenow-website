@@ -6,6 +6,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\Genres\Transformers\GenresResource;
 use Modules\Subscriptions\Transformers\PlanResource;
 use Modules\Subscriptions\Models\Plan;
+use Modules\Entertainment\Support\EntertainmentLocale;
 
 class ContinueWatchResourceV2 extends JsonResource
 {
@@ -42,8 +43,10 @@ class ContinueWatchResourceV2 extends JsonResource
             'watched_time' => $this->watched_time ?? '00:00:01',
             'total_watched_time' => $this->total_watched_time ?? '00:00:01',
             'episode_id' => $this->episode_id ?? null,
-            'name' => $entertainment->name ?? null,
-            'description' => strip_tags($entertainment->description ?? null),
+            'name' => $entertainment ? EntertainmentLocale::name($entertainment) : null,
+            'description' => $entertainment
+                ? strip_tags((string) EntertainmentLocale::description($entertainment))
+                : null,
             'trailer_url_type' => $entertainment->trailer_url_type ??null ,
             'trailer_url' => isset($entertainment) && $entertainment->trailer_url_type == 'Local'
     ? setBaseUrlWithFileName($entertainment->trailer_url)

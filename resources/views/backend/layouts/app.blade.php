@@ -398,6 +398,10 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
         function validateForm() {
+            if (typeof tinymce !== 'undefined') {
+                tinymce.triggerSave();
+            }
+
             const requiredFields = form.querySelectorAll('[required]');
             let isValid = true;
 
@@ -450,7 +454,25 @@ document.addEventListener("DOMContentLoaded", function () {
                 isValid = false;
                 showValidationError(inquiryemailInput, 'Enter a valid Inquiry email address.');
             }
-            console.log(isValid)
+
+            const englishDescription = form.querySelector('#description');
+            if (englishDescription && englishDescription.required && !englishDescription.value.trim()) {
+                isValid = false;
+                const englishError = document.getElementById('desc-error');
+                if (englishError) englishError.style.display = 'block';
+            }
+
+            const arabicDescription = form.querySelector('#description_ar');
+            if (arabicDescription && arabicDescription.required && !arabicDescription.value.trim()) {
+                isValid = false;
+                const arabicError = document.getElementById('description_ar-error');
+                if (arabicError) {
+                    arabicError.style.display = 'block';
+                } else {
+                    showValidationError(arabicDescription, 'Arabic description is required.');
+                }
+            }
+
             return isValid;
         }
 

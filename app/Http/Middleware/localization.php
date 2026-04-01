@@ -18,7 +18,11 @@ class localization
         // Check header request and determine localizaton
         $sessionLocal = session()->get('locale') ? session()->get('locale') : 'en';
 
-        $local = ($request->hasHeader('frezka-localization')) ? $request->header('frezka-localization') : $sessionLocal;
+        // Support both legacy and current mobile headers.
+        $local =
+            $request->header('global-localization')
+            ?? $request->header('frezka-localization')
+            ?? $sessionLocal;
         // set laravel localization
         app()->setLocale($local);
         // continue request

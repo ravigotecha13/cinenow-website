@@ -9,6 +9,7 @@ use Modules\Entertainment\Models\EntertainmentGenerMapping;
 use Modules\Entertainment\Models\Entertainment;
 use Modules\Subscriptions\Models\Subscription;
 use Modules\Entertainment\Transformers\CommanResource;
+use Modules\Entertainment\Support\EntertainmentLocale;
 
 
 class MovieDetailDataResourceV2  extends JsonResource
@@ -65,11 +66,36 @@ class MovieDetailDataResourceV2  extends JsonResource
 
         $getDeviceTypeData = Subscription::checkPlanSupportDevice($request->user_id,$device_type);
         $deviceTypeResponse = json_decode($getDeviceTypeData->getContent(), true); // Decode to associative array
+        $descLocalized = EntertainmentLocale::description($this->resource);
+
         return [
 
             'id' => $this->id,
-            'trailer_url_type' => $this->trailer_url_type ?? null,
-            'trailer_url' => isset($this->trailer_url_type) && $this->trailer_url_type === 'Local' ? setBaseUrlWithFileName($this->trailer_url) : ($this->trailer_url ?? null),
+            'name' => EntertainmentLocale::name($this->resource),
+            'name_en' => $this->name_en ?? $this->name,
+            'name_ar' => $this->name_ar,
+            'description' => $descLocalized !== null && $descLocalized !== '' ? strip_tags((string) $descLocalized) : '',
+            'description_en' => strip_tags((string) ($this->description_en ?? $this->description ?? '')),
+            'description_ar' => $this->description_ar !== null && $this->description_ar !== '' ? strip_tags((string) $this->description_ar) : null,
+            'type' => 'movie',
+            'trailer_url_type' => $this->trailer_url_type,
+            'trailer_url' => ($this->trailer_url_type ?? '') === 'Local' ? setBaseUrlWithFileName($this->trailer_url) : $this->trailer_url,
+            'plan_id' => $this->plan_id,
+            'plan_level' => $this->plan_level ?? 0,
+            'language' => $this->language,
+            'imdb_rating' => $this->IMDb_rating ?? $this->imdb_rating ?? null,
+            'content_rating' => $this->content_rating,
+            'duration' => $this->duration,
+            'release_date' => $this->release_date,
+            'is_restricted' => $this->is_restricted,
+            'video_upload_type' => $this->video_upload_type,
+            'video_url_input' => ($this->video_upload_type ?? '') === 'Local' ? setBaseUrlWithFileName($this->video_url_input) : $this->video_url_input,
+            'movie_access' => $this->movie_access,
+            'poster_image' => setBaseUrlWithFileName($this->poster_url ?? null),
+            'thumbnail_image' => setBaseUrlWithFileName($this->thumbnail_url ?? null),
+            'poster_tv_image' => setBaseUrlWithFileName($this->poster_tv_url ?? null),
+            'poster_url' => setBaseUrlWithFileName($this->poster_url ?? null),
+            'thumbnail_url' => setBaseUrlWithFileName($this->thumbnail_url ?? null),
             'enable_quality' => $this->enable_quality,
             'is_download' => $this->is_download ?? false,
             'download_status' => $this->download_status,
@@ -83,7 +109,7 @@ class MovieDetailDataResourceV2  extends JsonResource
             'total_review' => $this->total_review ?? 0,
             'reviews' => ReviewResource::collection($this->reviews),
             'three_reviews' => ReviewResource::collection($this->reviews->take(3)),
-            'video_links' => isset($this->trailer_url_type) && $this->trailer_url_type === 'Local' ? setBaseUrlWithFileName($this->trailer_url) : ($this->trailer_url ?? null),
+            'video_links' => $this->entertainmentStreamContentMappings ?? null,
             'subtitle_info' => $this->enable_subtitle == 1 ? SubtitleResource::collection($this->subtitles) : null,
             'casts' => CastCrewListResource::collection($casts),
             'directors' => CastCrewListResource::collection($directors),

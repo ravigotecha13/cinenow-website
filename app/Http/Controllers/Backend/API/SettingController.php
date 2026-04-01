@@ -22,96 +22,60 @@ class SettingController extends Controller
 
         $response = [];
 
+        $gatewayRegistry = config('payment_gateways.gateways', []);
+        $gatewaySettingNames = [];
+        foreach ($gatewayRegistry as $gateway) {
+            foreach (($gateway['settings'] ?? []) as $settingName) {
+                $gatewaySettingNames[] = $settingName;
+            }
+        }
+
         // Define the specific names you want to include
-        $specificNames = ['app_name', 'footer_text', 'primary','razorpay_secretkey', 'razorpay_publickey', 'stripe_secretkey', 'stripe_publickey', 'paystack_secretkey', 'paystack_publickey', 'paypal_secretkey', 'paypal_clientid', 'flutterwave_secretkey', 'flutterwave_publickey', 'onesignal_app_id', 'onesignal_rest_api_key', 'onesignal_channel_id', 'google_maps_key', 'helpline_number', 'copyright', 'inquriy_email', 'site_description', 'customer_app_play_store', 'customer_app_app_store', 'isForceUpdate', 'version_code','cinet_siteid','cinet_api_key','cinet_Secret_key','sadad_Sadadkey','sadad_id_key','sadad_Domain','airtel_money_secretkey','airtel_money_client_id','phonepe_App_id','phonepe_Merchant_id','phonepe_salt_key','phonepe_salt_index','midtrans_client_id','midtrans_server_key'];
+        $specificNames = array_values(array_unique(array_merge([
+            'app_name', 'footer_text', 'primary',
+            'onesignal_app_id', 'onesignal_rest_api_key', 'onesignal_channel_id',
+            'google_maps_key', 'helpline_number', 'copyright', 'inquriy_email', 'site_description',
+            'customer_app_play_store', 'customer_app_app_store',
+            'isForceUpdate', 'version_code',
+        ], $gatewaySettingNames)));
         foreach ($settings as $name => $value) {
             if (in_array($name, $specificNames)) {
                 if (strpos($name, 'onesignal_') === 0 && $request->is_authenticated == 1) {
                     $nestedKey = 'onesignal_customer_app';
-                    $nestedName = str_replace('', 'onesignal_', $name);
                     if (!isset($response[$nestedKey])) {
                         $response[$nestedKey] = [];
                     }
-                    $response[$nestedKey][$nestedName] = $value;
-                } elseif (strpos($name, 'razorpay_') === 0 && $request->is_authenticated == 1 && $settings['razor_payment_method'] == 1) {
-                    $nestedKey = 'razor_pay';
-
-                    $nestedName = str_replace('', 'razorpay_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                } elseif (strpos($name, 'stripe_') === 0 && $request->is_authenticated == 1 && $settings['str_payment_method'] == 1) {
-                    $nestedKey = 'stripe_pay';
-                    $nestedName = str_replace('', 'stripe_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                } elseif (strpos($name, 'paystack_') === 0 && $request->is_authenticated == 1 && $settings['paystack_payment_method'] == 1) {
-                    $nestedKey = 'paystack_pay';
-                    $nestedName = str_replace('', 'paystack_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                } elseif (strpos($name, 'paypal_') === 0 && $request->is_authenticated == 1 && $settings['paypal_payment_method'] == 1) {
-                    $nestedKey = 'paypal_pay';
-                    $nestedName = str_replace('', 'paypal_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                } elseif (strpos($name, 'flutterwave_') === 0 && $request->is_authenticated == 1 && $settings['flutterwave_payment_method'] == 1) {
-                    $nestedKey = 'flutterwave_pay';
-                    $nestedName = str_replace('', 'flutterwave_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-
-                }elseif (strpos($name, 'cinet_') === 0 && $request->is_authenticated == 1 && $settings['cinet_payment_method'] == 1) {
-                    $nestedKey = 'cinet_pay';
-                    $nestedName = str_replace('', 'cinet_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                }elseif (strpos($name, 'sadad_') === 0 && $request->is_authenticated == 1 && $settings['sadad_payment_method'] == 1) {
-                    $nestedKey = 'sadad_pay';
-                    $nestedName = str_replace('', 'sadad_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                }elseif (strpos($name, 'airtel_') === 0 && $request->is_authenticated == 1 && $settings['airtel_payment_method'] == 1) {
-                    $nestedKey = 'airtel_pay';
-                    $nestedName = str_replace('', 'airtel_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                }elseif (strpos($name, 'phonepe_') === 0 && $request->is_authenticated == 1 && $settings['phonepe_payment_method'] == 1) {
-                    $nestedKey = 'phonepe_pay';
-                    $nestedName = str_replace('', 'phonepe_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
-                }elseif (strpos($name, 'midtrans_') === 0 && $request->is_authenticated == 1 && $settings['midtrans_payment_method'] == 1) {
-                    $nestedKey = 'midtrans_pay';
-                    $nestedName = str_replace('', 'midtrans_', $name);
-                    if (!isset($response[$nestedKey])) {
-                        $response[$nestedKey] = [];
-                    }
-                    $response[$nestedKey][$nestedName] = $value;
+                    $response[$nestedKey][$name] = $value;
                 }
 
-                if (!strpos($name, 'onesignal_') === 0) {
-                    $response[$name] = $value;
-                } elseif (!strpos($name, 'stripe_') === 0) {
-                    $response[$name] = $value;
-                } elseif (!strpos($name, 'razorpay_') === 0) {
+                foreach ($gatewayRegistry as $gatewayCode => $gateway) {
+                    $enabledSetting = $gateway['enabled_setting'] ?? null;
+                    $nestedKey = $gateway['nested_key'] ?? null;
+                    $settingsList = $gateway['settings'] ?? [];
+
+                    if (! $enabledSetting || ! $nestedKey || empty($settingsList)) {
+                        continue;
+                    }
+
+                    if ($request->is_authenticated != 1) {
+                        continue;
+                    }
+
+                    if (($settings[$enabledSetting] ?? 0) != 1) {
+                        continue;
+                    }
+
+                    if (! in_array($name, $settingsList, true)) {
+                        continue;
+                    }
+
+                    if (!isset($response[$nestedKey])) {
+                        $response[$nestedKey] = [];
+                    }
+                    $response[$nestedKey][$name] = $value;
+                }
+
+                if (strpos($name, 'onesignal_') !== 0) {
                     $response[$name] = $value;
                 }
             }

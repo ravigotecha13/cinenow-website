@@ -63,22 +63,8 @@ class DashboardController extends Controller
             ? Banner::where('banner_for','home')->where('status', 1)->get()
             : collect();
 
-        $sliders = $sliderList->map(function ($banner) use ($user_id) {
-            $entertainment = Entertainment::find($banner->type_id);
-            if ($entertainment) {
-                $entertainment->video_trailer_url = $banner->video_trailer_url;
-                $entertainment->banner_id = $banner->id;
-                $entertainment->banner_type = $banner->type;
-            }
-            return [
-                'id' => $banner->id,
-                'title' => $banner->title,
-                'poster_url' => $banner->poster_url,
-                'file_url' => $banner->file_url,
-                'type' => $banner->type,
-                'poster_tv_image' => $banner->poster_tv_url,
-                'data' => $entertainment,
-            ];
+        $sliders = $sliderList->map(function ($banner) use ($user_id, $request) {
+            return $this->buildDashboardSliderItem($request, $banner, $user_id);
         })->toArray();
 
 
@@ -189,22 +175,8 @@ class DashboardController extends Controller
             ? Banner::where('banner_for','home')->where('status', 1)->get()
             : collect();
 
-        $sliders = $sliderList->map(function ($banner) use ($user_id) {
-            $entertainment = Entertainment::find($banner->type_id);
-            if ($entertainment) {
-                $entertainment->video_trailer_url = $banner->video_trailer_url;
-                $entertainment->banner_id = $banner->id;
-                $entertainment->banner_type = $banner->type;
-            }
-            return [
-                'id' => $banner->id,
-                'title' => $banner->title,
-                'poster_url' => $banner->poster_url,
-                'file_url' => $banner->file_url,
-                'type' => $banner->type,
-                'poster_tv_image' => $banner->poster_tv_url,
-                'data' => $entertainment,
-            ];
+        $sliders = $sliderList->map(function ($banner) use ($user_id, $request) {
+            return $this->buildDashboardSliderItem($request, $banner, $user_id);
         })->toArray();
 
 
@@ -277,7 +249,12 @@ class DashboardController extends Controller
     
         $latestSetting = MobileSetting::where('slug', 'latest-movies')->first();
         $latestMovieIds = $latestSetting ? $latestSetting->value : null;
-        $latestSectionName = $latestSetting ? $latestSetting->name : 'Latest Movies';
+        $latestSectionName = $this->localizedMobileSectionName(
+            $request,
+            'latest-movies',
+            $latestSetting?->name,
+            'Latest Movies'
+        );
     
         $latest_movie = [];
     
@@ -313,7 +290,12 @@ class DashboardController extends Controller
            'leavingSoonMovies' => \Modules\Entertainment\Transformers\ComingSoonResource::collection($leavingSoonMovies)->toArray(request()),
            'latest_movie' => $latest_movies_final,
            'popular_movie' => [
-               'name' => MobileSetting::where('slug','popular-movies')->value('name') ?? 'Popular Movies',
+               'name' => $this->localizedMobileSectionName(
+                   $request,
+                   'popular-movies',
+                   MobileSetting::where('slug', 'popular-movies')->value('name'),
+                   'Popular Movies'
+               ),
                'data' => $popularMovies,
            ],
            'latestMovies' => $latestMovies,
@@ -841,6 +823,9 @@ public function DashboardDetailData(Request $request){
             foreach ($slugsWithDefaults as $slug => $default) {
                 $sectionNames[$slug] = $settings[$slug] ?? $default;
             }
+            if ($this->resolveApiLocale($request) === 'ar') {
+                $sectionNames['latest-movies'] = trans('frontend.whats_new_on_cinenow', [], 'ar');
+            }
            $responseData = [
                'latest_movie' => [
                     'name' => $sectionNames['latest-movies'],
@@ -926,22 +911,8 @@ public function DashboardDetailData(Request $request){
         ? Banner::where('banner_for','home')->where('status', 1)->get()
         : collect();
 
-        $sliders = $sliderList->map(function ($banner) use ($user_id) {
-            $entertainment = Entertainment::find($banner->type_id);
-            if ($entertainment) {
-                $entertainment->video_trailer_url = $banner->video_trailer_url;
-                $entertainment->banner_id = $banner->id;
-                $entertainment->banner_type = $banner->type;
-            }
-            return [
-                'id' => $banner->id,
-                'title' => $banner->title,
-                'poster_url' => $banner->poster_url,
-                'file_url' => $banner->file_url,
-                'type' => $banner->type,
-                'poster_tv_image' => $banner->poster_tv_url,
-                'data' => $entertainment,
-            ];
+        $sliders = $sliderList->map(function ($banner) use ($user_id, $request) {
+            return $this->buildDashboardSliderItem($request, $banner, $user_id);
         })->toArray();
 
 
@@ -1077,7 +1048,12 @@ public function DashboardDetailData(Request $request){
                'data' => $top_10,
           ],
            'latest_movie' => [
-               'name' => MobileSetting::where('slug', 'latest-movies')->value('name') ?? 'Latest Movies',
+               'name' => $this->localizedMobileSectionName(
+                   $request,
+                   'latest-movies',
+                   MobileSetting::where('slug', 'latest-movies')->value('name'),
+                   'Latest Movies'
+               ),
                'data' => (function() use ($user_id) {
                    $latestMovieIds = MobileSetting::getCacheValueBySlug('latest-movies');
                    $ids = json_decode($latestMovieIds, true);
@@ -1105,7 +1081,12 @@ public function DashboardDetailData(Request $request){
            })(),
            'watch_limits' => $watch_limits,
            'popular_movie' => [
-               'name' => MobileSetting::where('slug', 'popular-movies')->value('name') ?? 'Popular Movies',
+               'name' => $this->localizedMobileSectionName(
+                   $request,
+                   'popular-movies',
+                   MobileSetting::where('slug', 'popular-movies')->value('name'),
+                   'Popular Movies'
+               ),
                'data' => $popular_movie,
            ],
            'popular_language' => $popular_language,
@@ -1218,5 +1199,148 @@ public function DashboardDetailData(Request $request){
         }
 
         return $payPerViewContent;
+    }
+
+    /**
+     * Locale for API/mobile clients.
+     * Must align with {@see \App\Http\Middleware\localization}: app accepts
+     * `global-localization` and `frezka-localization`. Query ?lang= overrides.
+     */
+    /**
+     * Home slider row: use API transformers so `data` respects locale (same as list endpoints).
+     */
+    protected function buildDashboardSliderItem(Request $request, Banner $banner, $user_id): array
+    {
+        $data = null;
+        if (in_array($banner->type, ['movie', 'tvshow'], true)) {
+            $data = $this->formatSliderEntertainmentPayload($request, $banner, $user_id);
+        }
+
+        if ($data === null && ! in_array($banner->type, ['movie', 'tvshow'], true)) {
+            $entertainment = Entertainment::find($banner->type_id);
+            if ($entertainment) {
+                $entertainment->video_trailer_url = $banner->video_trailer_url;
+                $entertainment->banner_id = $banner->id;
+                $entertainment->banner_type = $banner->type;
+            }
+            $data = $entertainment;
+        }
+
+        return [
+            'id' => $banner->id,
+            'title' => $banner->title,
+            'poster_url' => $banner->poster_url,
+            'file_url' => $banner->file_url,
+            'type' => $banner->type,
+            'poster_tv_image' => $banner->poster_tv_url,
+            'data' => $data,
+        ];
+    }
+
+    protected function formatSliderEntertainmentPayload(Request $request, Banner $banner, $user_id): ?array
+    {
+        $query = Entertainment::with(['plan', 'entertainmentGenerMappings'])
+            ->where('id', $banner->type_id);
+
+        if ($request->has('is_restricted')) {
+            $query->where('is_restricted', $request->is_restricted);
+        }
+        if (! empty(getCurrentProfileSession('is_child_profile')) && getCurrentProfileSession('is_child_profile') != 0) {
+            $query->where('is_restricted', 0);
+        }
+
+        $entertainment = $query->first();
+        if (! $entertainment) {
+            return null;
+        }
+
+        $entertainment->user_id = $user_id;
+        if ($user_id && $request->filled('profile_id')) {
+            $entertainment->is_watch_list = \Modules\Entertainment\Models\Watchlist::where('entertainment_id', $entertainment->id)
+                ->where('user_id', $user_id)
+                ->where('profile_id', $request->profile_id)
+                ->exists();
+        }
+
+        $payload = $banner->type === 'movie'
+            ? (new MoviesResource($entertainment))->toArray($request)
+            : (new TvshowResource($entertainment))->toArray($request);
+
+        // Legacy keys some clients expect on slider `data` (MoviesResource uses poster_image / thumbnail_image).
+        $payload['poster_url'] = $payload['poster_image'] ?? null;
+        $payload['thumbnail_url'] = $payload['thumbnail_image'] ?? null;
+
+        $payload['video_trailer_url'] = $banner->video_trailer_url;
+        $payload['banner_id'] = $banner->id;
+        $payload['banner_type'] = $banner->type;
+
+        return $payload;
+    }
+
+    protected function resolveApiLocale(Request $request): string
+    {
+        $supported = ['ar', 'en', 'de', 'fr', 'el'];
+
+        $normalize = static function (?string $raw) use ($supported): ?string {
+            if ($raw === null || $raw === '') {
+                return null;
+            }
+            $raw = str_replace('_', '-', trim($raw));
+            if (strlen($raw) < 2) {
+                return null;
+            }
+            $code = strtolower(substr($raw, 0, 2));
+            return in_array($code, $supported, true) ? $code : null;
+        };
+
+        $fromQuery = $normalize($request->query('lang') ?? $request->query('locale'));
+        if ($fromQuery !== null) {
+            return $fromQuery;
+        }
+
+        $fromHeader = $normalize(
+            $request->header('global-localization')
+            ?? $request->header('frezka-localization')
+        );
+        if ($fromHeader !== null) {
+            return $fromHeader;
+        }
+
+        $accept = $request->header('Accept-Language');
+        if (is_string($accept) && $accept !== '') {
+            foreach (explode(',', $accept) as $part) {
+                $part = trim(explode(';', $part)[0]);
+                $code = $normalize($part);
+                if ($code !== null) {
+                    return $code;
+                }
+            }
+        }
+
+        // Middleware may have set this from localization headers already.
+        $fromApp = $normalize(app()->getLocale());
+        if ($fromApp !== null) {
+            return $fromApp;
+        }
+
+        return $normalize(config('app.locale', 'en')) ?? 'en';
+    }
+
+    /**
+     * Arabic section titles from lang files so the whole string (including brand wording) is Arabic, not half-translated English.
+     */
+    protected function localizedMobileSectionName(Request $request, string $slug, ?string $dbName, string $fallbackEn): string
+    {
+        $locale = $this->resolveApiLocale($request);
+
+        if ($locale === 'ar') {
+            return match ($slug) {
+                'latest-movies' => trans('frontend.whats_new_on_cinenow', [], 'ar'),
+                'popular-movies' => trans('frontend.popular_movie', [], 'ar'),
+                default => $dbName ?? $fallbackEn,
+            };
+        }
+
+        return $dbName ?? $fallbackEn;
     }
 }
