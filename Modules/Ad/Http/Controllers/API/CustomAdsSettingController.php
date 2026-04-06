@@ -27,19 +27,20 @@ class CustomAdsSettingController extends Controller
                 $subscription = $user->subscriptionPackage;
                 if ($subscription && isset($subscription['plan_type'])) {
                     $planLimitations = json_decode($subscription['plan_type'], true);
-                    foreach ($planLimitations as $limitation) {
-                        if (
-                            isset($limitation['limitation_title']) &&
-                            strtolower($limitation['limitation_title']) === 'ads' &&
-                            isset($limitation['limitation_value']) &&
-                            $limitation['limitation_value'] == 0
-                        ) {
-                            // Ads are disabled for this user
-                            return response()->json([
-                                'success' => true,
-                                'data' => [],
-                                'message' => 'Ads are disabled in your subscription.'
-                            ]);
+                    if (is_array($planLimitations)) {
+                        foreach ($planLimitations as $limitation) {
+                            if (
+                                isset($limitation['limitation_title']) &&
+                                strtolower($limitation['limitation_title']) === 'ads' &&
+                                isset($limitation['limitation_value']) &&
+                                $limitation['limitation_value'] == 0
+                            ) {
+                                return response()->json([
+                                    'success' => true,
+                                    'data' => [],
+                                    'message' => 'Ads are disabled in your subscription.',
+                                ]);
+                            }
                         }
                     }
                 }
@@ -48,8 +49,8 @@ class CustomAdsSettingController extends Controller
             $contentId = $request->input('content_id');
             $contentType = $request->input('type'); // video, movie, tvshow, channel
             $contentVideoType = $request->input('video_type');
-            // Use current date with a 1-day buffer to handle timezone differences (e.g. server UTC vs user Local)
-            $currentDate = Carbon::now()->addDay()->format('Y-m-d');
+            // App timezone — do not use addDay(); it hid ads on the last valid day of a range
+            $currentDate = Carbon::now()->timezone(config('app.timezone'))->format('Y-m-d');
 
             Log::info('CustomAds API called', [
                 'content_id' => $contentId,
@@ -100,20 +101,24 @@ class CustomAdsSettingController extends Controller
             // }
 
             if ($contentType) {
-                $query->where('target_content_type', $contentType);
-
-                if ($contentId) {
-                    $query->where(function ($q) use ($contentId) {
-                        $q->where('target_categories', 'like', '%[' . $contentId . ',%')
-                            ->orWhere('target_categories', 'like', '%,' . $contentId . ',%')
-                            ->orWhere('target_categories', 'like', '%,' . $contentId . ']%')
-                            ->orWhere('target_categories', 'like', '%[' . $contentId . ']%');
-                    });
-                }
+                $contentTypeNorm = strtolower((string) $contentType);
+                $query->whereRaw('LOWER(COALESCE(target_content_type, \'\')) = ?', [$contentTypeNorm]);
             }
 
-
             $activeAds = $query->orderBy('id', 'asc')->get();
+
+            // Match target_categories in PHP — SQL LIKE on JSON breaks (e.g. id 5 matching "[51]")
+            if ($contentId !== null && $contentId !== '' && $contentType) {
+                $cid = (int) $contentId;
+                $activeAds = $activeAds->filter(function ($ad) use ($cid) {
+                    $ids = json_decode($ad->target_categories, true);
+                    if (! is_array($ids) || count($ids) === 0) {
+                        return false;
+                    }
+
+                    return in_array($cid, array_map('intval', $ids), true);
+                })->values();
+            }
 
             $filteredAds = $activeAds->map(function ($ad) use ($user) {
             $targetType = strtolower($ad->target_content_type ?? '');
@@ -177,12 +182,16 @@ class CustomAdsSettingController extends Controller
                 'content_id' => $contentId,
                 'current_date' => $currentDate,
                 'ads_found' => $filteredAds->count(),
-                'ads' => $filteredAds->toArray()
+                'ads' => $filteredAds->toArray(),
             ]);
+
+            $data = $filteredAds->map(function ($ad) use ($request) {
+                return (new CustomAdsSettingResource($ad))->toArray($request);
+            })->values()->all();
 
             return response()->json([
                 'success' => true,
-                'data' => CustomAdsSettingResource::collection($filteredAds),
+                'data' => $data,
             ]);
         } catch (\Exception $e) {
             Log::error('Error in getActiveAds:', [

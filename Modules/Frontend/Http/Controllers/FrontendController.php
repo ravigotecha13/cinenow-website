@@ -110,6 +110,9 @@ class FrontendController extends Controller
                     'file_url' => $banner->file_url,
                     'type' => $banner->type,
                     'poster_tv_image' => $banner->poster_tv_url,
+                    'video_trailer_url' => $banner->video_trailer_url
+                        ? setBaseUrlWithFileName($banner->video_trailer_url)
+                        : null,
                     'data' => $entertainment, // ⚡ includes full entertainment + banner video_trailer_url
                 ];
             })->toArray();

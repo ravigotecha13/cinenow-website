@@ -270,8 +270,8 @@ class CustomAdsSettingController extends Controller
     {
         $module_title = __('messages.edit_customads');
         $data = CustomAdsSetting::findOrFail($id);
-        $type = $data['type'];
-        $urlType = $data['url_type'];
+        $type = strtolower((string) $data['type']);
+        $urlType = strtolower((string) $data['url_type']);
         if ($type === 'video') {
             if ($urlType === 'local') {
                 $data->video_url_input = setBaseUrlWithFileName($data->media);
@@ -319,8 +319,10 @@ class CustomAdsSettingController extends Controller
         if (empty($data['skip_enabled'])) {
             $data['skip_after'] = null;
         }
-        $type = $request->input('type');
-        $urlType = $request->input('url_type');
+        $type = strtolower((string) $request->input('type', ''));
+        $urlType = strtolower((string) $request->input('url_type', ''));
+        $data['type'] = $type;
+        $data['url_type'] = $urlType;
 
         $media = null;
 
@@ -345,7 +347,7 @@ class CustomAdsSettingController extends Controller
             }
         }
         if (! $media) {
-            if ($type === $customad->type && $urlType === $customad->url_type) {
+            if ($type === strtolower((string) $customad->type) && $urlType === strtolower((string) $customad->url_type)) {
                 $media = $customad->media;
             } else {
                 $media = null;

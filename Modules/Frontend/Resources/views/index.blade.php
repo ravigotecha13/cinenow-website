@@ -83,7 +83,7 @@
                </div>
             </div>
 
-            <!-- Custom Ad Section: Only for placement 'home_page' -->
+            <!-- Custom ads: home_page, banner, or player (same promos as backend Custom Ads) -->
             <div id="custom-homepage-ad-section" class="section-wraper section-hidden d-none">
                 <div class="custom-ad-container">
                     <div class="custom-ad-wrapper">
@@ -436,7 +436,6 @@ const observer = new IntersectionObserver((entries, observer) => {
               fetchContinueWatch();
             } else if (entry.target.id === 'top-10-moive-section' ) {
                 fetchTop10Movies();
-                fetchCustomHomePageAd(); // Fetch and show custom ad after Top 10 section
             } else if (entry.target.id === 'latest-moive-section') {
                 fetchLatestMovies();
             }else if (entry.target.id === 'language-section' ) {
@@ -480,6 +479,9 @@ const observer = new IntersectionObserver((entries, observer) => {
 sections.forEach(section => {
     observer.observe(section);
 });
+
+// Custom homepage ads: load once on page load (do not wait for Top 10 scroll)
+fetchCustomHomePageAd();
 
 const rtlMode = document.documentElement.getAttribute('dir') === 'rtl';
 
@@ -709,109 +711,126 @@ function fetchLanguages() {
    }
 
    function fetchCustomHomePageAd() {
-        const baseUrl = document.querySelector('meta[name="baseUrl"]').getAttribute('content');
-        fetch(`${baseUrl}/api/custom-ads/get-active`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && Array.isArray(data.data)) {
-                    // Filter for home_page placement
-                    const ads = data.data.filter(item => item.placement === 'home_page');
-                    if (ads.length > 0) {
-                        let adHtml = `
-                            <div class="custom-ad-box">
-                                <div class="custom-ad-slider">
-                                    ${ads.map(ad => {
-                                        let content = '';
-                                        if (ad.type === 'image') {
-                                            let imgSrc = ad.url_type === 'local' ? `${ad.media}` : ad.media;
-                                            content = `
-                                                <div class="custom-ad-content">
-                                                    ${ad.redirect_url ? `
-                                                        <a href="${ad.redirect_url}" class="ad-link" target="_blank" rel="noopener noreferrer">
-                                                            <img src="${imgSrc}" alt="${ad.name}" class="ad-image">
-                                                            <div class="ad-overlay"></div>
-                                                        </a>
-                                                    ` : `
-                                                        <img src="${imgSrc}" alt="${ad.name}" class="ad-image">
-                                                        <div class="ad-overlay"></div>
-                                                    `}
-                                                </div>
-                                            `;
-                                        } else if (ad.type === 'video') {
-                                            // Check if it's a YouTube URL
-                                            let isYouTube = ad.media.includes('youtube.com') || ad.media.includes('youtu.be');
-                                            if (isYouTube) {
-                                                // Extract YouTube video ID
-                                                let videoId = '';
-                                                if (ad.media.includes('youtu.be/')) {
-                                                    videoId = ad.media.split('youtu.be/')[1].split(/[?&]/)[0];
-                                                } else if (ad.media.includes('youtube.com')) {
-                                                    let url = new URL(ad.media);
-                                                    videoId = url.searchParams.get('v');
-                                                }
-                                                content = `
-                                                    <div class="custom-ad-content video-content">
-                                                        <div class="video-container">
-                                                            <iframe class="ad-video" src="https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1&mute=1&controls=0&showinfo=0&modestbranding=1&loop=1&playlist=${videoId}" frameborder="0"></iframe>
-                                                        </div>
-                                                        <div class="ad-overlay"></div>
-                                                        ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
-                                                    </div>
-                                                `;
-                                            } else if (ad.url_type == "url") {
-                                                // Regular video file
-                                                content = `
-                                                    <div class="custom-ad-content video-content">
-                                                        <div class="video-container">
-                                                            <video class="ad-video" autoplay muted loop playsinline>
-                                                                <source src="${ad.media}" type="video/mp4">
-                                                                Your browser does not support the video tag.
-                                                            </video>
-                                                        </div>
-                                                        <div class="ad-overlay"></div>
-                                                        ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
-                                                    </div>
-                                                `;
-                                            }
-                                            else {
+        const baseUrl = window.location.origin || document.querySelector('meta[name="baseUrl"]').getAttribute('content');
+        const adSection = document.getElementById('custom-homepage-ad-section');
+        if (!adSection) return;
 
-                                                // Regular video file
-                                                content = `
-                                                    <div class="custom-ad-content video-content">
-                                                        <div class="video-container">
-                                                            <video class="ad-video" autoplay muted loop playsinline>
-                                                                <source src="${baseUrl}${ad.media}" type="video/mp4">
-                                                                Your browser does not support the video tag.
-                                                            </video>
-                                                        </div>
-                                                        <div class="ad-overlay"></div>
-                                                        ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
-                                                    </div>
-                                                `;
-                                            }
+        function resolveAdMediaUrl(media) {
+            const m = (media == null) ? '' : String(media).trim();
+            if (!m) return '';
+            if (/^https?:\/\//i.test(m)) {
+                try {
+                    const mediaUrl = new URL(m);
+                    // Production-safe fallback: if media points to localhost/127.0.0.1, use current host for same storage path
+                    if (['127.0.0.1', 'localhost'].includes(mediaUrl.hostname) && mediaUrl.pathname.startsWith('/storage/')) {
+                        return window.location.origin + mediaUrl.pathname;
+                    }
+                } catch (e) {}
+                return m;
+            }
+            return m.startsWith('/') ? (window.location.origin + m) : (window.location.origin + '/' + m.replace(/^\/+/, ''));
+        }
+
+        fetch(`${baseUrl}/api/custom-ads/get-active`)
+            .then(response => response.ok ? response.json() : null)
+            .then(data => {
+                if (!data) return;
+                const rows = Array.isArray(data.data) ? data.data : (data.data && Array.isArray(data.data.data) ? data.data.data : []);
+                if (!(data.success && Array.isArray(rows) && rows.length > 0)) return;
+
+                const allowedPlacements = ['home_page', 'banner', 'player'];
+                const ads = rows
+                    .filter(item => item && item.status == 1 && item.media)
+                    .filter(item => allowedPlacements.includes((item.placement || '').toString().toLowerCase()))
+                    .sort((a, b) => {
+                        const pA = allowedPlacements.indexOf((a.placement || '').toString().toLowerCase());
+                        const pB = allowedPlacements.indexOf((b.placement || '').toString().toLowerCase());
+                        if (pA !== pB) return pA - pB;
+                        return Number(b.id || 0) - Number(a.id || 0);
+                    });
+
+                if (ads.length === 0) return;
+
+                let adHtml = `
+                    <div class="custom-ad-box">
+                        <div class="custom-ad-slider">
+                            ${ads.map(ad => {
+                                let content = '';
+                                const adType = (ad.type || '').toString().toLowerCase();
+                                const mediaUrl = resolveAdMediaUrl(ad.media);
+                                if (adType === 'image') {
+                                    content = `
+                                        <div class="custom-ad-content">
+                                            ${ad.redirect_url ? `
+                                                <a href="${ad.redirect_url}" class="ad-link" target="_blank" rel="noopener noreferrer">
+                                                    <img src="${mediaUrl}" alt="${ad.name}" class="ad-image">
+                                                    <div class="ad-overlay"></div>
+                                                </a>
+                                            ` : `
+                                                <img src="${mediaUrl}" alt="${ad.name}" class="ad-image">
+                                                <div class="ad-overlay"></div>
+                                            `}
+                                        </div>
+                                    `;
+                                } else if (adType === 'video') {
+                                    const isYouTube = mediaUrl.includes('youtube.com') || mediaUrl.includes('youtu.be');
+                                    if (isYouTube) {
+                                        let videoId = '';
+                                        if (mediaUrl.includes('youtu.be/')) {
+                                            videoId = mediaUrl.split('youtu.be/')[1].split(/[?&]/)[0];
+                                        } else if (mediaUrl.includes('youtube.com')) {
+                                            let url = new URL(mediaUrl);
+                                            videoId = url.searchParams.get('v');
                                         }
-                                        return `<div class="custom-ad-wrapper">${content}</div>`;
-                                    }).join('')}
-                                </div>
-                            </div>
-                        `;
-                        const adSection = document.getElementById('custom-homepage-ad-section');
-                        if (adSection) {
-                            adSection.innerHTML = adHtml;
-                            adSection.classList.remove('section-hidden');
-                            adSection.classList.remove('d-none');
-                            adSection.classList.add('section-visible');
-                            $('.custom-ad-slider').slick({
-                                dots: true,
-                                arrows: false,
-                                infinite: ads.length > 1,
-                                slidesToShow: 1,
-                                slidesToScroll: 1,
-                                adaptiveHeight: true,
-                                autoplay: true,
-                                autoplaySpeed: 5000
-                            });
-                        }
+                                        content = `
+                                            <div class="custom-ad-content video-content">
+                                                <div class="video-container">
+                                                    <iframe class="ad-video" src="https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1&mute=1&controls=0&showinfo=0&modestbranding=1&loop=1&playlist=${videoId}" frameborder="0"></iframe>
+                                                </div>
+                                                <div class="ad-overlay"></div>
+                                                ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
+                                            </div>
+                                        `;
+                                    } else {
+                                        content = `
+                                            <div class="custom-ad-content video-content">
+                                                <div class="video-container">
+                                                    <video class="ad-video" autoplay muted loop playsinline>
+                                                        <source src="${mediaUrl}" type="video/mp4">
+                                                        Your browser does not support the video tag.
+                                                    </video>
+                                                </div>
+                                                <div class="ad-overlay"></div>
+                                                ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
+                                            </div>
+                                        `;
+                                    }
+                                }
+                                return `<div class="custom-ad-wrapper">${content}</div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+
+                adSection.innerHTML = adHtml;
+                adSection.classList.remove('section-hidden');
+                adSection.classList.remove('d-none');
+                adSection.classList.add('section-visible');
+
+                // Slick optional: keep content visible even if slick fails
+                if (window.$ && $.fn && typeof $.fn.slick === 'function') {
+                    const $slider = $('.custom-ad-slider');
+                    if ($slider.length && !$slider.hasClass('slick-initialized')) {
+                        $slider.slick({
+                            dots: true,
+                            arrows: false,
+                            infinite: ads.length > 1,
+                            slidesToShow: 1,
+                            slidesToScroll: 1,
+                            adaptiveHeight: true,
+                            autoplay: true,
+                            autoplaySpeed: 5000
+                        });
                     }
                 }
             })

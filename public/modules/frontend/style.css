@@ -14520,8 +14520,8 @@ Slide Down Animation
 .iq-search-bar.dropdown-menu {
   border: none;
   min-width: 25em;
-  left: auto;
-  right: 0;
+  inset-inline-start: auto;
+  inset-inline-end: 0;
 }
 .iq-search-bar .search-input {
   height: 4em;
@@ -14545,14 +14545,15 @@ Slide Down Animation
   width: 2.8em;
   position: absolute;
   top: 50%;
-  left: auto;
-  right: 0;
-  border-left: 0.8px solid var(--bs-border-color-translucent);
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  border-inline-start: 0.8px solid var(--bs-border-color-translucent);
+  border-inline-end: none;
   transform: translateY(-50%);
   z-index: 1;
 }
 .iq-search-bar:has(.remove-search.d-none) .form-control {
-  padding-right: 2.8em !important;
+  padding-inline-end: 2.8em !important;
 }
 .iq-search-bar .remove-search,
 .iq-search-bar .remove-fullsearch {
@@ -14564,7 +14565,7 @@ Slide Down Animation
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  right: 50px;
+  inset-inline-end: 50px;
   z-index: 1;
   font-size: 12px;
   line-height: 0;
@@ -14574,8 +14575,8 @@ Slide Down Animation
   animation: scale-out-hor-right 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) both;
 }
 .search-box .iq-search-bar .form-control {
-  padding-left: 1.5em !important;
-  padding-right: 4.8em !important;
+  padding-inline-start: 1.5em !important;
+  padding-inline-end: 4.8em !important;
   background: var(--bs-gray-900);
   z-index: 0;
 }
@@ -14603,7 +14604,7 @@ Slide Down Animation
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  right: 65px;
+  inset-inline-end: 65px;
   z-index: 1;
   font-size: 12px;
   line-height: 0;
@@ -14615,7 +14616,8 @@ Slide Down Animation
     margin: 0;
     padding: 0;
     top: 50%;
-    right: 0;
+    inset-inline-start: auto;
+    inset-inline-end: 0;
     background: transparent;
     transform: scaleX(0) translateY(-50%);
     transform-origin: 100% 100%;
@@ -17874,6 +17876,55 @@ html:has(.short-menu) {
   color: var(--bs-heading-color);
 }
 
+.header-inline-nav .iq-nav-menu > li > a.nav-link {
+  color: #fff !important;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.header-inline-nav .iq-nav-menu > li > a.nav-link:hover,
+.header-inline-nav .iq-nav-menu > li > a.nav-link:focus {
+  color: var(--bs-primary) !important;
+}
+
+@media (min-width: 1200px) {
+  header .cinenow-main-header > nav#navbar_main.horizontal-nav.mobile-offcanvas {
+    display: none !important;
+  }
+}
+.header-search-toggle.text-white svg {
+  stroke: currentColor;
+}
+
+.btn-cinenow-lang {
+  background: rgba(0, 0, 0, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.btn-cinenow-lang:hover,
+.btn-cinenow-lang:focus,
+.btn-cinenow-lang.show {
+  background: rgba(0, 0, 0, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+}
+
+.btn-cinenow-login {
+  background: #8e8e93 !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.btn-cinenow-login:hover,
+.btn-cinenow-login:focus {
+  background: #7a7a80 !important;
+  color: #fff !important;
+}
+
 /*!
 * Version: 5.0.0
 * Template: Streamit - Responsive Bootstrap 5.3.2 Template
@@ -18724,18 +18775,6 @@ img {
     padding-right: 0;
   }
 }
-[dir=rtl] .iq-search-bar .search-submit {
-  right: auto;
-  left: 0;
-}
-[dir=rtl] .iq-search-bar:has(.remove-search.d-none) .form-control {
-  padding-left: 2.8em !important;
-  padding-right: 1.5rem !important;
-}
-[dir=rtl] .iq-search-bar .search-submit {
-  border-left: none;
-  border-right: 0.8px solid var(--bs-border-color-translucent);
-}
 [dir=rtl] .search-box .form-group {
   animation: scale-out-hor-left 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) both;
 }
@@ -18768,8 +18807,6 @@ img {
 }
 @media (min-width: 768px) {
   [dir=rtl] header .navbar-nav .search-box .dropdown-menu {
-    right: auto;
-    left: 0;
     transform-origin: 0 100%;
   }
 }

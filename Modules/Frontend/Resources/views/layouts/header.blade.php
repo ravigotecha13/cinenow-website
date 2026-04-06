@@ -1,22 +1,27 @@
 @php
     $currentRoute = Route::currentRouteName();
     $noAbsoluteRoutes = ['movie-details', 'tvshow-details', 'episode-details', 'video-detail','pay-per-view.paymentform','pay-per-view'];
+    $localeLabels = config('app.available_locales', []);
+    $currentLocaleLabel = $localeLabels[App::getLocale()] ?? strtoupper(App::getLocale());
 @endphp
 
 <header class="header-absolute {{ $currentRoute === 'user.login' && !in_array($currentRoute, $noAbsoluteRoutes) ? 'header-absolute' : '' }}">
     <nav class="nav navbar navbar-expand-xl navbar-light iq-navbar header-hover-menu py-xl-0">
         <div class="container-fluid navbar-inner">
-            <div class="d-flex align-items-center justify-content-between w-100 landing-header">
-                <div class="d-flex gap-3 gap-xl-0 align-items-center">
+            <div class="d-flex align-items-center justify-content-between w-100 landing-header cinenow-main-header">
+                <div class="header-leading d-flex align-items-center gap-3 gap-xl-0 flex-grow-1 flex-xl-grow-0">
                     <button type="button" data-bs-toggle="offcanvas" data-bs-target="#navbar_main"
                         aria-controls="navbar_main"
-                        class="d-xl-none btn btn-primary rounded-pill toggle-rounded-btn">
+                        class="d-xl-none btn btn-primary rounded-pill toggle-rounded-btn flex-shrink-0">
                         <i class="ph ph-arrow-right"></i>
                     </button>
                     @include('frontend::components.partials.logo')
+                    @include('frontend::components.partials.horizontal-nav-inline')
                 </div>
 
                 @include('frontend::components.partials.horizontal-nav')
+
+                <div class="header-trailing flex-shrink-0">
                 <div class="right-panel">
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
                         data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false"
@@ -29,27 +34,30 @@
                         <div class="d-flex flex-md-row flex-column align-items-md-center align-items-end justify-content-end gap-xl-4 gap-0">
                             <ul class="navbar-nav align-items-center list-inline justify-content-end mt-md-0 mt-3">
                                 <li class="flex-grow-1">
-                                    <div class="search-box position-relative text-end">
-                                        <a href="#" class="nav-link p-0 d-md-inline-block d-none" id="search-drop" data-bs-toggle="dropdown">
+                                    <div class="search-box position-relative">
+                                        <a href="#" class="nav-link p-0 d-md-inline-block d-none header-search-toggle text-white" id="search-drop" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true"
+                                           aria-label="{{ __('frontend.search') }}">
                                            <div class="btn-icon btn-sm rounded-pill btn-action">
                                               <span class="btn-inner">
-                                                 <svg class="icon-20" width="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                 <svg class="icon-20" width="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                                     <circle cx="11.7669" cy="11.7666" r="8.98856" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></circle>
                                                     <path d="M18.0186 18.4851L21.5426 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
                                                  </svg>
                                               </span>
                                            </div>
                                         </a>
-                                        <ul class="dropdown-menu p-0 dropdown-search m-0 iq-search-bar" style="width: 20rem;">
+                                        <ul class="dropdown-menu dropdown-menu-end p-0 dropdown-search m-0 iq-search-bar" style="width: 20rem;">
                                            <li class="p-0">
-                                              <div class="form-group input-group mb-0">
-                                                <button type="submit" id="search-button" class="search-submit">
-                                                    <svg class="icon-15" width="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                              <div class="form-group input-group mb-0 flex-nowrap">
+                                                 <input type="search" id="search-query" name="q" class="form-control border-0 text-start" dir="auto" autocomplete="off"
+                                                        lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+                                                        placeholder="{{ __('frontend.search') }}…">
+                                                 <button type="submit" id="search-button" class="search-submit" aria-label="{{ __('frontend.search') }}">
+                                                    <svg class="icon-15" width="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                                                         <circle cx="11.7669" cy="11.7666" r="8.98856" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></circle>
                                                         <path d="M18.0186 18.4851L21.5426 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
                                                     </svg>
                                                  </button>
-                                                 <input type="text" id="search-query" class="form-control border-0" placeholder="Search...">
                                               </div>
                                            </li>
                                         </ul>
@@ -163,11 +171,12 @@
                             </li> --}}
                             <ul class="navbar-nav align-items-center mb-0 list-inline justify-content-end">
                                 <li class="nav-item dropdown dropdown-language-wrapper">
-                                    <button class="btn btn-dark gap-3 px-3 dropdown-toggle" data-bs-toggle="dropdown"
+                                    <button type="button" class="btn btn-dark btn-cinenow-lang gap-3 px-3 dropdown-toggle" data-bs-toggle="dropdown"
                                         aria-haspopup="true" aria-expanded="false">
-                                        <img src="{{ asset('flags/' . App::getLocale() . '.png') }}" alt="flag" class="img-fluid me-2" style="width: 20px; height: auto; min-width: 15px;"
-                                        onerror="this.onerror=null; this.src='{{asset('flags/globe.png')}}';">
-                                        {{ strtoupper(App::getLocale()) }}
+                                        <img src="{{ asset('flags/' . App::getLocale() . '.png') }}" alt="" class="img-fluid me-2" style="width: 20px; height: auto; min-width: 15px;"
+                                        onerror="this.onerror=null; this.src='{{ asset('flags/globe.png') }}';">
+                                        <span class="d-none d-lg-inline">{{ $currentLocaleLabel }}</span>
+                                        <span class="d-lg-none">{{ strtoupper(App::getLocale()) }}</span>
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-end dropdown-menu-language mt-0">
                                         @foreach (config('app.available_locales') as $locale => $title)
@@ -383,14 +392,15 @@
                                     </li>
                                 @else
                                     <li class="nav-item">
-                                        <a href="{{ route('login') }}" class="btn btn-primary font-size-14 login-btn">
-                                            {{__('frontend.login')}}
+                                        <a href="{{ route('login') }}" class="btn btn-cinenow-login font-size-14 login-btn">
+                                            {{ __('frontend.login') }}
                                         </a>
                                     </li>
                                 @endif
                             </ul>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -527,11 +537,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const isLoggedIn = {{ Auth::check() ? 'true' : 'false' }};
     const urlParams = new URLSearchParams(window.location.search);
     const query = urlParams.get('query');
-    document.getElementById('search-query').value = query;
-    const envURL = document.querySelector('meta[name="baseUrl"]').getAttribute('content');
     const searchButton = document.getElementById('search-button');
     const searchInput = document.getElementById('search-query');
-
+    if (!searchButton || !searchInput) {
+        return;
+    }
+    if (query) {
+        searchInput.value = query;
+    }
+    const envURL = document.querySelector('meta[name="baseUrl"]').getAttribute('content');
 
     // Handle search button click
     searchButton.addEventListener('click', function(e) {

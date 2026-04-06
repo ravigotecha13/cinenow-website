@@ -82,6 +82,9 @@ class SliderResource extends JsonResource
             'type' => $this->type,
             'data' => $data,
             'poster_tv_image' => setBaseUrlWithFileName($this->poster_tv_url),
+            'video_trailer_url' => ! empty($this->video_trailer_url)
+                ? setBaseUrlWithFileName($this->video_trailer_url)
+                : null,
         ];
     }
 }

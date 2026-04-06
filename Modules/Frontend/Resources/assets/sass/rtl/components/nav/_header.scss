@@ -1,24 +1,4 @@
-.iq-search-bar {
-    .search-submit {
-        right: auto;
-        left: 0;
-    }
-
-    &:has(.remove-search.d-none) {
-        .form-control {
-            padding-left: 2.8em !important;
-            padding-right: 1.5rem !important;
-        }
-    }
-}
-
-.iq-search-bar {
-    .search-submit {
-        border-left: none;
-        border-right: .8px solid var(--bs-border-color-translucent);
-    }
-}
-
+// Search expand animation + dropdown origin (layout uses logical props in main _header.scss)
 .search-box {
     .form-group {
         animation: scale-out-hor-left 0.5s cubic-bezier(0.55, 0.085, 0.68, 0.53) both;
@@ -106,8 +86,6 @@
         .navbar-nav {
             .search-box {
                 .dropdown-menu {
-                    right: auto;
-                    left: 0;
                     transform-origin: 0 100%;
                 }
             }

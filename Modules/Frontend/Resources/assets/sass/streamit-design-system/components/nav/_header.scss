@@ -177,8 +177,8 @@ Slide Down Animation
   &.dropdown-menu {
     border: none;
     min-width: 25em;
-    left: auto;
-    right: 0;
+    inset-inline-start: auto;
+    inset-inline-end: 0;
   }
 
   .search-input {
@@ -205,15 +205,16 @@ Slide Down Animation
     width: 2.8em;
     position: absolute;
     top: 50%;
-    left: auto;
-    right: 0;
-    border-left: .8px solid var(--bs-border-color-translucent);
+    inset-inline-start: auto;
+    inset-inline-end: 0;
+    border-inline-start: .8px solid var(--bs-border-color-translucent);
+    border-inline-end: none;
     transform: translateY(-50%);
     z-index: 1;
   }
 
   &:has(.remove-search.d-none) .form-control{
-    padding-right: 2.8em !important;
+    padding-inline-end: 2.8em !important;
   }
 
   .remove-search ,
@@ -226,7 +227,7 @@ Slide Down Animation
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    right: 50px;
+    inset-inline-end: 50px;
     z-index: 1;
     font-size: 12px;
     line-height: 0;
@@ -240,8 +241,8 @@ Slide Down Animation
 
   .iq-search-bar {
     .form-control {
-      padding-left: 1.5em !important;
-      padding-right: 4.8em !important;
+      padding-inline-start: 1.5em !important;
+      padding-inline-end: 4.8em !important;
       background: var(--bs-gray-900);
       z-index: 0;
     }
@@ -273,7 +274,7 @@ Slide Down Animation
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    right: 65px;
+    inset-inline-end: 65px;
     z-index: 1;
     font-size: 12px;
     line-height: 0;
@@ -289,7 +290,8 @@ Slide Down Animation
           margin: 0;
           padding: 0;
           top: 50%;
-          right: 0;
+          inset-inline-start: auto;
+          inset-inline-end: 0;
           background: transparent;
           transform: scaleX(0) translateY(-50%);
           transform-origin: 100% 100%;

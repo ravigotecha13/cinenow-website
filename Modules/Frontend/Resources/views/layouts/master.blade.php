@@ -124,7 +124,7 @@
         header {
             position: fixed !important;
             top: 0;
-            left: 0;
+            inset-inline-start: 0;
             width: 100%;
             z-index: 1000;
             transition: background-color 0.3s ease, backdrop-filter 0.3s ease !important;

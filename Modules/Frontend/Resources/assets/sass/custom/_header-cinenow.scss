@@ -1,0 +1,59 @@
+// Cine Now header look — colors / visibility only (no width/height overrides)
+
+// Desktop inline nav — white links, no forced capitalize
+.header-inline-nav {
+  .iq-nav-menu > li > a.nav-link {
+    color: #fff !important;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .iq-nav-menu > li > a.nav-link:hover,
+  .iq-nav-menu > li > a.nav-link:focus {
+    color: var(--bs-primary) !important;
+  }
+}
+
+// Hide duplicate center offcanvas nav on xl+ (inline nav used instead)
+@media (min-width: 1200px) {
+  header .cinenow-main-header > nav#navbar_main.horizontal-nav.mobile-offcanvas {
+    display: none !important;
+  }
+}
+
+// Search icon color (size comes from theme .btn-action / .icon-20)
+.header-search-toggle.text-white svg {
+  stroke: currentColor;
+}
+
+// Language pill — dark translucent (padding from Bootstrap .btn / .px-3)
+.btn-cinenow-lang {
+  background: rgba(0, 0, 0, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+.btn-cinenow-lang:hover,
+.btn-cinenow-lang:focus,
+.btn-cinenow-lang.show {
+  background: rgba(0, 0, 0, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+}
+
+// Login — silver (theme controls button padding)
+.btn-cinenow-login {
+  background: #8e8e93 !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  font-weight: 600;
+  box-shadow: none !important;
+}
+
+.btn-cinenow-login:hover,
+.btn-cinenow-login:focus {
+  background: #7a7a80 !important;
+  color: #fff !important;
+}

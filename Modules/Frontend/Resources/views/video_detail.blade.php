@@ -50,19 +50,20 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     function fetchCustomVideoDetailAd() {
-        fetch(`${window.envURL || ''}/api/custom-ads/get-active`)
+        const baseUrl = window.location.origin || document.querySelector('meta[name="baseUrl"]')?.getAttribute('content') || window.envURL || '';
+        fetch(`${baseUrl}/api/custom-ads/get-active`)
             .then(response => response.json())
             .then(data => {
-                if (data.success && Array.isArray(data.data)) {
-                    // Filter for video_detail_page placement
-                    const ads = data.data.filter(item => item.placement === 'video_detail_page');
+                const rows = Array.isArray(data.data) ? data.data : (data.data && Array.isArray(data.data.data) ? data.data.data : []);
+                if (data.success && Array.isArray(rows) && rows.length > 0) {
+                    const ads = rows.filter(item => (item.placement || '').toString().toLowerCase() === 'video_detail_page');
                     if (ads.length > 0) {
                         let adHtml = `
                             <div class="custom-ad-slider">
                                 ${ads.map(ad => {
                                     let content = '';
-                                    if (ad.type === 'image') {
-                                        let imgSrc = ad.url_type === 'local' ? `${ad.media}` : ad.media;
+                                    if ((ad.type || '').toString().toLowerCase() === 'image') {
+                                        let imgSrc = ad.media;
                                         content = `
                                             <div class="custom-ad-content">
                                                 ${ad.redirect_url ? `

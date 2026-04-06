@@ -368,6 +368,21 @@ class MovieController extends Controller
 
         $data['more_items'] = MoviesResource::collection($more_items);
 
+        $bannerForTrailer = Banner::query()
+            ->where('type_id', $movieId)
+            ->where('type', 'movie')
+            ->where('status', 1)
+            ->whereIn('banner_for', ['home', 'movie'])
+            ->whereNotNull('video_trailer_url')
+            ->where('video_trailer_url', '!=', '')
+            ->get()
+            ->sortBy(fn ($b) => $b->banner_for === 'home' ? 0 : 1)
+            ->first();
+
+        $data['banner_trailer_url'] = $bannerForTrailer && $bannerForTrailer->video_trailer_url
+            ? setBaseUrlWithFileName($bannerForTrailer->video_trailer_url)
+            : null;
+
         if ($request->has('is_search') && $request->is_search == 1) {
             $user_id = auth()->user()->id ?? $request->user_id;
 

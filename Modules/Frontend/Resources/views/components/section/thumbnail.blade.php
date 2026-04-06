@@ -19,10 +19,16 @@ if (!empty($data['start_date'])) {
 }
 
 /* -------------------------------------------------
-| TRAILER + VIDEO
+| TRAILER + VIDEO (hero uses banner trailer when set — same file as home/movies banner)
 ------------------------------------------------- */
-$trailerUrl  = $data['trailer_url'] ?? '';
-$trailerType = $data['trailer_url_type'] ?? 'URL';
+$bannerTrailer = $data['banner_trailer_url'] ?? '';
+$entTrailer    = $data['trailer_url'] ?? '';
+$trailerUrl    = ! empty($bannerTrailer) ? $bannerTrailer : $entTrailer;
+if (! empty($bannerTrailer)) {
+    $trailerType = (str_contains($bannerTrailer, '.m3u8')) ? 'HLS' : 'URL';
+} else {
+    $trailerType = $data['trailer_url_type'] ?? 'URL';
+}
 $video_url   = $data['video_url_input'] ?? '';
 
 /* -------------------------------------------------
@@ -118,6 +124,7 @@ $profileId = getCurrentProfile($userId, request());
                class="w-100"
                preload="metadata"
                muted
+               loop
                playsinline
                poster="{{ $data['thumbnail_image'] ?? '' }}">
             @if ($trailerUrl)
@@ -133,7 +140,9 @@ $profileId = getCurrentProfile($userId, request());
 
         {{-- 🎭 OVERLAY --}}
         <div class="movie-overlay">
-            <div class="movie-overlay-content">
+            <div class="movie-overlay-content text-start"
+                 lang="{{ str_replace('_', '-', app()->getLocale()) }}"
+                 dir="auto">
 
                 <h1 class="movie-title">{{ $displayName }}</h1>
                 <p class="movie-description">{!! $displayDescription !!}</p>
@@ -215,10 +224,257 @@ $profileId = getCurrentProfile($userId, request());
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const watchBtn  = document.getElementById('watchNowBtn');
+    function resolveCustomAdMediaUrl(media, baseUrl) {
+        const m = (media == null) ? '' : String(media).trim();
+        if (!m) return '';
+        if (/^https?:\/\//i.test(m) || m.startsWith('data:') || m.startsWith('blob:')) return m;
+        if (m.startsWith('//')) return (window.location && window.location.protocol ? window.location.protocol : 'https:') + m;
+        const b = (baseUrl || '').replace(/\/$/, '');
+        return m.startsWith('/') ? b + m : b + '/' + m.replace(/^\/+/, '');
+    }
+
+    const trailer   = document.getElementById('trailerPlayer');
+    const muteBtn   = document.getElementById('muteToggleBtn');
     const overlay   = document.querySelector('.movie-overlay');
     const container = document.getElementById('videoContainer');
 
+    const heroContentId = @json($data['id'] ?? null);
+    const heroContentType = @json($content_type ?? ($data['type'] ?? 'movie'));
+
+    function parseTargetIds(raw) {
+        if (Array.isArray(raw)) return raw.map(function (v) { return Number(v); }).filter(Number.isFinite);
+        if (typeof raw === 'string') {
+            try {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    return parsed.map(function (v) { return Number(v); }).filter(Number.isFinite);
+                }
+            } catch (e) {
+                return [];
+            }
+        }
+        return [];
+    }
+
+    function pickPrerollAd(rows, placementPrefs, contentId) {
+        const prefs = placementPrefs.map(function (p) { return (p || '').toString().toLowerCase(); });
+        const cid = Number(contentId);
+
+        const list = rows.filter(function (item) {
+            if (!item || item.status != 1) return false;
+            if (!item.media) return false;
+            const pl = (item.placement || '').toString().toLowerCase();
+            return prefs.indexOf(pl) !== -1;
+        });
+
+        if (!list.length) return null;
+
+        list.sort(function (a, b) {
+            const pA = prefs.indexOf((a.placement || '').toString().toLowerCase());
+            const pB = prefs.indexOf((b.placement || '').toString().toLowerCase());
+            if (pA !== pB) return pA - pB;
+
+            const idsA = parseTargetIds(a.target_categories);
+            const idsB = parseTargetIds(b.target_categories);
+            const exactA = Number.isFinite(cid) ? idsA.indexOf(cid) !== -1 : false;
+            const exactB = Number.isFinite(cid) ? idsB.indexOf(cid) !== -1 : false;
+            if (exactA !== exactB) return exactB - exactA;
+
+            return Number(b.id || 0) - Number(a.id || 0);
+        });
+
+        return list[0] || null;
+    }
+
+    function playCustomAdForContent(contentId, contentType, placementPrefs) {
+        return new Promise(function (resolve) {
+            if (!contentId || !contentType) {
+                resolve();
+                return;
+            }
+            (async function () {
+                try {
+                    const baseUrl = window.location.origin || document.querySelector('meta[name="baseUrl"]')?.getAttribute('content') || '';
+                    const url = `${baseUrl}/api/custom-ads/get-active?content_id=${encodeURIComponent(contentId)}&type=${encodeURIComponent(contentType)}`;
+                    const res = await fetch(url, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        credentials: 'include'
+                    });
+                    const json = await res.json();
+                    const rows = Array.isArray(json.data) ? json.data : (json.data && Array.isArray(json.data.data) ? json.data.data : []);
+                    if (!json.success || !Array.isArray(rows) || rows.length === 0) {
+                        resolve();
+                        return;
+                    }
+                    const ad = pickPrerollAd(rows, placementPrefs, contentId);
+                    if (!ad) {
+                        resolve();
+                        return;
+                    }
+                    const modal = document.getElementById('customAdModal');
+                    const content = document.getElementById('customAdContent');
+                    const closeBtn = document.getElementById('customAdCloseBtn');
+                    const timerDiv = document.getElementById('adTimer');
+                    const timeSpan = document.getElementById('adTimeRemaining');
+                    if (!modal || !content) {
+                        resolve();
+                        return;
+                    }
+                    modal.style.display = 'flex';
+                    content.innerHTML = '';
+                    closeBtn.style.display = 'none';
+                    timerDiv.style.display = 'none';
+
+                    let adFinished = false;
+                    let skipTimer = null;
+                    const safetyTimer = setTimeout(function () { finishAd(); }, 4 * 60 * 1000);
+
+                    function finishAd() {
+                        if (adFinished) return;
+                        adFinished = true;
+                        clearTimeout(safetyTimer);
+                        if (skipTimer) clearTimeout(skipTimer);
+                        modal.style.display = 'none';
+                        content.innerHTML = '';
+                        resolve();
+                    }
+
+                    closeBtn.onclick = finishAd;
+
+                    if (ad.skip_after > 0) {
+                        skipTimer = setTimeout(function () {
+                            if (!adFinished) closeBtn.style.display = 'block';
+                        }, ad.skip_after * 1000);
+                    } else if (ad.skip_after === 0) {
+                        closeBtn.style.display = 'block';
+                    }
+
+                    const adType = (ad.type || '').toString().toLowerCase();
+                    if (adType === 'image') {
+                        const duration = ad.duration || 10;
+                        const imgSrc = resolveCustomAdMediaUrl(ad.media, baseUrl);
+                        let imgHtml = `<img src="${imgSrc}" style="max-width:100%; max-height:100%; object-fit:contain;">`;
+                        if (ad.redirect_url) {
+                            imgHtml = `<a href="${ad.redirect_url}" target="_blank">${imgHtml}</a>`;
+                        }
+                        content.innerHTML = imgHtml;
+                        let timeLeft = duration;
+                        timerDiv.style.display = 'block';
+                        timeSpan.innerText = timeLeft + 's';
+                        const tick = setInterval(function () {
+                            if (adFinished) {
+                                clearInterval(tick);
+                                return;
+                            }
+                            timeLeft--;
+                            timeSpan.innerText = timeLeft + 's';
+                            if (timeLeft <= 0) {
+                                clearInterval(tick);
+                                finishAd();
+                            }
+                        }, 1000);
+                    } else if (adType === 'video') {
+                        const isYouTube = /youtu\.?be/.test(ad.media);
+                        if (isYouTube) {
+                            let videoId = '';
+                            const ytMatch = ad.media.match(/(?:youtu\.be\/|youtube\.com.*(?:v=|\/embed\/|\/v\/|\/shorts\/))([a-zA-Z0-9_-]{11})/);
+                            if (ytMatch && ytMatch[1]) videoId = ytMatch[1];
+                            if (videoId) {
+                                content.innerHTML = `<iframe id="adYtFrame" width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                                const yDur = ad.duration || 30;
+                                let timeLeft = yDur;
+                                timerDiv.style.display = 'block';
+                                timeSpan.innerText = timeLeft + 's';
+                                const tick = setInterval(function () {
+                                    if (adFinished) {
+                                        clearInterval(tick);
+                                        return;
+                                    }
+                                    timeLeft--;
+                                    timeSpan.innerText = timeLeft + 's';
+                                    if (timeLeft <= 0) {
+                                        clearInterval(tick);
+                                        finishAd();
+                                    }
+                                }, 1000);
+                            } else {
+                                finishAd();
+                            }
+                        } else {
+                            const videoUrl = resolveCustomAdMediaUrl(ad.media, baseUrl);
+                            const isHls = videoUrl.includes('.m3u8');
+                            const videoEl = document.createElement('video');
+                            videoEl.style.width = '100%';
+                            videoEl.style.height = '100%';
+                            videoEl.autoplay = true;
+                            videoEl.muted = true;
+                            videoEl.controls = false;
+                            videoEl.playsInline = true;
+                            if (ad.redirect_url) {
+                                videoEl.style.cursor = 'pointer';
+                                videoEl.onclick = function () { window.open(ad.redirect_url, '_blank'); };
+                            }
+                            content.appendChild(videoEl);
+                            if (isHls && window.Hls && window.Hls.isSupported()) {
+                                const hls = new Hls();
+                                hls.loadSource(videoUrl);
+                                hls.attachMedia(videoEl);
+                            } else {
+                                videoEl.src = videoUrl;
+                            }
+                            videoEl.play().catch(function () { finishAd(); });
+                            videoEl.onended = finishAd;
+                            videoEl.onerror = function () { finishAd(); };
+                            videoEl.ontimeupdate = function () {
+                                if (videoEl.duration) {
+                                    timerDiv.style.display = 'block';
+                                    const remaining = Math.ceil(videoEl.duration - videoEl.currentTime);
+                                    timeSpan.innerText = remaining + 's';
+                                }
+                            };
+                        }
+                    } else {
+                        finishAd();
+                    }
+                } catch (e) {
+                    console.error('Error fetching ads:', e);
+                    resolve();
+                }
+            })();
+        });
+    }
+
+    (async function runHeroTrailerWithOptionalAd() {
+        if (!trailer) return;
+        const src = trailer.querySelector('source')?.getAttribute('src') || trailer.currentSrc;
+        if (!src) return;
+        trailer.pause();
+        trailer.currentTime = 0;
+        if (heroContentId && heroContentType) {
+            await playCustomAdForContent(heroContentId, heroContentType, ['banner', 'player', 'home_page']);
+        }
+        if (overlay) overlay.style.display = '';
+        trailer.muted = true;
+        trailer.play().catch(function () {});
+    })();
+
+    if (muteBtn && trailer) {
+        muteBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            trailer.muted = !trailer.muted;
+            const icon = muteBtn.querySelector('i');
+            if (icon) {
+                icon.className = trailer.muted ? 'fa-solid fa-volume-mute' : 'fa-solid fa-volume-high';
+            }
+        });
+    }
+
+    const watchBtn  = document.getElementById('watchNowBtn');
     if (!watchBtn) return;
 
     watchBtn.addEventListener('click', async function (e) {
@@ -283,197 +539,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         /* -------------------------------------------------
-        | 📺 FETCH & PLAY CUSTOM ADS (PRE-ROLL)
+        | 📺 PRE-ROLL before main player (placement: player)
         ------------------------------------------------- */
-        async function playPreRollAd() {
-            return new Promise(async (resolve) => {
-                try {
-                    const baseUrl = document.querySelector('meta[name="baseUrl"]')?.getAttribute('content') || '';
-                    const url = `${baseUrl}/api/custom-ads/get-active?content_id=${entertainmentId}&type=${entertainmentType}`;
-            
-            const res = await fetch(url, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                credentials: 'include'
-            });
-            const json = await res.json();
-                    
-                    if (!json.success || !Array.isArray(json.data)) {
-                        resolve(); // No ads or error
-                        return;
-                    }
-
-                    // Find ad for player placement
-                    const ad = json.data.find(item => item.placement === 'player' && item.status == 1);
-                    
-                    if (!ad) {
-                        resolve(); // No player ad
-                        return;
-                    }
-
-                    // Show Ad Modal
-                    const modal = document.getElementById('customAdModal');
-                    const content = document.getElementById('customAdContent');
-                    const closeBtn = document.getElementById('customAdCloseBtn');
-                    const timerDiv = document.getElementById('adTimer');
-                    const timeSpan = document.getElementById('adTimeRemaining');
-
-                    if (!modal || !content) {
-                        resolve();
-                        return;
-                    }
-
-                    // Hide overlay elements
-                    overlay.style.display = 'none';
-                    modal.style.display = 'flex';
-                    content.innerHTML = '';
-                    closeBtn.style.display = 'none';
-                    timerDiv.style.display = 'none';
-
-                    let adFinished = false;
-                    let skipTimer = null;
-
-                    const finishAd = () => {
-                        if (adFinished) return;
-                        adFinished = true;
-                        if (skipTimer) clearTimeout(skipTimer);
-                        modal.style.display = 'none';
-                        content.innerHTML = ''; // Cleanup
-                        resolve();
-                    };
-
-                    closeBtn.onclick = finishAd;
-
-                    // Handle Skip Button
-                    if (ad.skip_after > 0) {
-                        setTimeout(() => {
-                            if (!adFinished) {
-                                closeBtn.style.display = 'block';
-                            }
-                        }, ad.skip_after * 1000);
-                    } else if (ad.skip_after === 0) {
-                         closeBtn.style.display = 'block';
-                    }
-
-                    // Render Ad Content
-                    if (ad.type === 'image') {
-                        const duration = ad.duration || 10; // Default 10s for images
-                        const imgSrc = ad.url_type === 'url' ? ad.media : `${baseUrl}${ad.media}`;
-                        
-                        let imgHtml = `<img src="${imgSrc}" style="max-width:100%; max-height:100%; object-fit:contain;">`;
-                        if (ad.redirect_url) {
-                            imgHtml = `<a href="${ad.redirect_url}" target="_blank">${imgHtml}</a>`;
-                        }
-                        content.innerHTML = imgHtml;
-
-                        // Timer for image
-                        let timeLeft = duration;
-                        timerDiv.style.display = 'block';
-                        timeSpan.innerText = timeLeft + 's';
-
-                        const tick = setInterval(() => {
-                            if (adFinished) {
-                                clearInterval(tick);
-                                return;
-                            }
-                            timeLeft--;
-                            timeSpan.innerText = timeLeft + 's';
-                            if (timeLeft <= 0) {
-                                clearInterval(tick);
-                                finishAd();
-                            }
-                        }, 1000);
-
-                    } else if (ad.type === 'video') {
-                         // Check for YouTube
-                         const isYouTube = /youtu\.?be/.test(ad.media);
-                         
-                         if (isYouTube) {
-                             let videoId = '';
-                             const ytMatch = ad.media.match(/(?:youtu\.be\/|youtube\.com.*(?:v=|\/embed\/|\/v\/|\/shorts\/))([a-zA-Z0-9_-]{11})/);
-                             if (ytMatch && ytMatch[1]) videoId = ytMatch[1];
-                             
-                             if (videoId) {
-                                 content.innerHTML = `<iframe id="adYtFrame" width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-                                 
-                                 // YouTube duration is hard to get without API, use ad duration or default
-                                 const duration = ad.duration || 30; 
-                                 let timeLeft = duration;
-                                 timerDiv.style.display = 'block';
-                                 timeSpan.innerText = timeLeft + 's';
-
-                                 const tick = setInterval(() => {
-                                    if (adFinished) {
-                                        clearInterval(tick);
-                                        return;
-                                    }
-                                    timeLeft--;
-                                    timeSpan.innerText = timeLeft + 's';
-                                    if (timeLeft <= 0) {
-                                        clearInterval(tick);
-                                        finishAd();
-                                    }
-                                 }, 1000);
-                             } else {
-                                 finishAd(); // Invalid YT
-                             }
-
-                         } else {
-                             // Regular Video (MP4/HLS)
-                             const videoUrl = ad.url_type === 'url' ? ad.media : `${baseUrl}${ad.media}`;
-                             const isHls = videoUrl.includes('.m3u8');
-                             
-                             const videoEl = document.createElement('video');
-                             videoEl.style.width = '100%';
-                             videoEl.style.height = '100%';
-                             videoEl.autoplay = true;
-                             videoEl.controls = false;
-                             videoEl.playsInline = true;
-                             // videoEl.muted = true; // Start muted to allow autoplay
-                             
-                             if (ad.redirect_url) {
-                                 videoEl.style.cursor = 'pointer';
-                                 videoEl.onclick = () => window.open(ad.redirect_url, '_blank');
-                             }
-
-                             content.appendChild(videoEl);
-
-                             if (isHls && Hls.isSupported()) {
-                                 const hls = new Hls();
-                                 hls.loadSource(videoUrl);
-                                 hls.attachMedia(videoEl);
-                             } else {
-                                 videoEl.src = videoUrl;
-                             }
-                             
-                             videoEl.onended = finishAd;
-                             videoEl.onerror = (e) => {
-                                 console.error('Ad Playback Error', e);
-                                 finishAd();
-                             };
-                             
-                             // Timer based on actual video time
-                             videoEl.ontimeupdate = () => {
-                                 if (videoEl.duration) {
-                                     timerDiv.style.display = 'block';
-                                     const remaining = Math.ceil(videoEl.duration - videoEl.currentTime);
-                                     timeSpan.innerText = remaining + 's';
-                                 }
-                             };
-                         }
-                    }
-
-                } catch (e) {
-                    console.error('Error fetching ads:', e);
-                    resolve();
-                }
-            });
-        }
-
-        await playPreRollAd();
+        await playCustomAdForContent(entertainmentId, entertainmentType, ['player']);
 
         /* -------------------------------------------------
         | 🎬 LOAD PLAYER
@@ -638,7 +706,7 @@ document.addEventListener('DOMContentLoaded', function () {
     .mute-btn {
         position: absolute;
         bottom: 25px;
-        right: 25px;
+        inset-inline-end: 25px;
         background: rgba(255, 255, 255, 0.2);
         color: white;
         border: none;
@@ -744,6 +812,9 @@ document.addEventListener('DOMContentLoaded', function () {
         rgba(0,0,0,0.25) 48%,
         rgba(0,0,0,0.00) 65%
       );
+    }
+    html[dir="rtl"] .movie-overlay::before {
+      transform: scaleX(-1);
     }
     
     /* Bottom black fade (strong at bottom, clear at top) */

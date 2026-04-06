@@ -16,19 +16,47 @@ document.addEventListener('DOMContentLoaded', function() {
     var contentId = "{{ $content_id ?? '' }}";
     var contentType = "{{ $content_type ?? '' }}";
     var categoryId = "{{ $category_id ?? '' }}";
+    var requestedPlacement = "{{ $placement ?? 'default' }}";
+
+    function placementAliases(placement) {
+        var p = (placement || '').toString().toLowerCase();
+        var aliasMap = {
+            home: ['home_page', 'banner', 'player'],
+            home_page: ['home_page', 'banner', 'player'],
+            banner: ['banner', 'home_page', 'player'],
+            player: ['player'],
+            movie_detail: ['movie_detail_page', 'movie_detail', 'banner'],
+            movie_detail_page: ['movie_detail_page', 'movie_detail', 'banner'],
+            video_detail: ['video_detail_page', 'video_detail', 'banner'],
+            video_detail_page: ['video_detail_page', 'video_detail', 'banner'],
+            tvshow_detail: ['tvshow_detail_page', 'tvshow_detail', 'banner'],
+            tvshow_detail_page: ['tvshow_detail_page', 'tvshow_detail', 'banner']
+        };
+        return aliasMap[p] || [p];
+    }
+
     function fetchCustomAdBanner(placement, sectionId) {
         const params = new URLSearchParams();
         if (contentId) params.append('content_id', contentId);
         if (contentType) params.append('type', contentType);
         if (categoryId) params.append('category_id', categoryId);
-         const baseUrl = document.querySelector('meta[name="baseUrl"]').getAttribute('content');
+         const baseUrl = window.location.origin || document.querySelector('meta[name="baseUrl"]').getAttribute('content');
         const apiUrl = `${baseUrl || ''}/api/custom-ads/get-active?${params.toString()}`;
         fetch(apiUrl)
             .then(response => response.json())
             .then(data => {
-                if (data.success && Array.isArray(data.data)) {
-                    // Filter for the given placement
-                    const ads = data.data.filter(item => item.placement === "banner");
+                const rows = Array.isArray(data.data) ? data.data : (data.data && Array.isArray(data.data.data) ? data.data.data : []);
+                if (data.success && Array.isArray(rows) && rows.length > 0) {
+                    const prefs = placementAliases(placement);
+                    const ads = rows
+                        .filter(item => item && item.status == 1 && item.media)
+                        .filter(item => prefs.includes((item.placement || '').toString().toLowerCase()))
+                        .sort((a, b) => {
+                            const pA = prefs.indexOf((a.placement || '').toString().toLowerCase());
+                            const pB = prefs.indexOf((b.placement || '').toString().toLowerCase());
+                            if (pA !== pB) return pA - pB;
+                            return Number(b.id || 0) - Number(a.id || 0);
+                        });
                     const adSection = document.getElementById(sectionId);
 
                     if (ads.length > 0) {
@@ -36,8 +64,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class=\"custom-ad-slider\">
                                 ${ads.map(ad => {
                                     let content = '';
-                                    if (ad.type === 'image') {
-                                        let imgSrc = ad.url_type === 'local' ? `${ad.media}` : ad.media;
+                                    const adType = (ad.type || '').toString().toLowerCase();
+                                    if (adType === 'image') {
+                                        let imgSrc = ad.media;
                                         content = `
                                             <div class=\"custom-ad-content\">
                                                 ${ad.redirect_url ? `
@@ -51,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 `}
                                             </div>
                                         `;
-                                    } else if (ad.type === 'video') {
+                                    } else if (adType === 'video') {
                                             // Check if it's a YouTube URL
                                             let isYouTube = ad.media.includes('youtube.com') || ad.media.includes('youtu.be');
                                             if (isYouTube) {
@@ -72,29 +101,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                                         ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
                                                     </div>
                                                 `;
-                                            } else if (ad.url_type == "url") {
-                                                // Regular video file
+                                            } else {
+                                                // MP4/HLS/local: API already returns full URL in ad.media
                                                 content = `
                                                     <div class="custom-ad-content video-content">
                                                         <div class="video-container">
                                                             <video class="ad-video" autoplay muted loop playsinline>
                                                                 <source src="${ad.media}" type="video/mp4">
-                                                                Your browser does not support the video tag.
-                                                            </video>
-                                                        </div>
-                                                        <div class="ad-overlay"></div>
-                                                        ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
-                                                    </div>
-                                                `;
-                                            }
-                                            else {
-
-                                                // Regular video file
-                                                content = `
-                                                    <div class="custom-ad-content video-content">
-                                                        <div class="video-container">
-                                                            <video class="ad-video" autoplay muted loop playsinline>
-                                                                <source src="${baseUrl}${ad.media}" type="video/mp4">
                                                                 Your browser does not support the video tag.
                                                             </video>
                                                         </div>
@@ -141,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
     // Use the placement and section id from the Blade component
-    fetchCustomAdBanner(@json($placement ?? 'default'), 'custom-ad-banner-section-{{ $placement ?? 'default' }}');
+    fetchCustomAdBanner(requestedPlacement, 'custom-ad-banner-section-{{ $placement ?? 'default' }}');
 });
 </script>
 <style>
