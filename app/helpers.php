@@ -51,7 +51,7 @@ function sendNotification($data)
                 $data['plan_type'] = $subscription['plan_type'];
                 $data['username'] = $subscription['user']->full_name;
                 $data['notification_group'] = 'subscription';
-                $data['site_url'] = env('APP_URL');
+                $data['site_url'] = config('app.url');
 
                 unset($data['subscription']);
 

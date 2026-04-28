@@ -36,7 +36,7 @@
     let actor_id= null;
     let type=null;
     let per_page=10;
-    const baseUrl =  "{{ env('APP_URL') }}";
+    const baseUrl =  "{{ config('app.url') }}";
     const apiUrl = `${baseUrl}/api/continuewatch-list?page=${currentPage}&is_ajax=1&per_page=${per_page}`;
     const csrf_token='{{ csrf_token() }}'
 </script>

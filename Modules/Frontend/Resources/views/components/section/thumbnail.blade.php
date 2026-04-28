@@ -86,7 +86,7 @@ if ($userId && $entertainmentId && $isMoviePPV) {
         $progress = DB::table('watch_progress')
             ->where('ticket_id', $activeTicket->id)
             ->first();
-        $watchedPercent = (int) ($progress->watched_percentage ?? 0);
+        $watchedPercent = $progress ? (int) ($progress->watched_percentage ?? 0) : 0;
     }
 }
 

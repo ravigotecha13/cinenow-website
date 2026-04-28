@@ -1022,7 +1022,7 @@ $(document).on('click', '.variable_button', function() {
         $('#tvshow_id_error').text('');
         $('#error_message').text('');
 
-        var baseUrl = "{{ env('APP_URL') }}";
+        var baseUrl = "{{ config('app.url') }}";
         var url = baseUrl + '/app/tvshows/import-tvshow/' + tvshowID;
 
         if (!tvshowID) {

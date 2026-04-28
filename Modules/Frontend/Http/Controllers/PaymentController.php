@@ -217,7 +217,7 @@ class PaymentController extends Controller
 
     protected function RazorpayPayment(Request $request, $price)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
         $razorpayKey = GetpaymentMethod('razorpay_publickey');
         $razorpaySecret = GetpaymentMethod('razorpay_secretkey');
         $plan_id = $request->input('plan_id');
@@ -255,7 +255,7 @@ class PaymentController extends Controller
 
     protected function PaystackPayment(Request $request)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
 
 
         $paystackSecretKey = GetpaymentMethod('paystack_secretkey');
@@ -318,7 +318,7 @@ class PaymentController extends Controller
 
     protected function PayPalPayment(Request $request)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
         $price = $request->input('price');
         $plan_id = $request->input('plan_id');
 
@@ -364,7 +364,7 @@ class PaymentController extends Controller
     protected function FlutterwavePayment(Request $request)
     {
         try {
-            $baseURL = env('APP_URL');
+            $baseURL = config('app.url');
             $flutterwaveKey = GetpaymentMethod('flutterwave_publickey');
             $price = $request->input('price');
             $plan_id = $request->input('plan_id');
@@ -470,7 +470,7 @@ class PaymentController extends Controller
 
     protected function SadadPayment(Request $request)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
         $price = $request->input('price');
         $plan_id = $request->input('plan_id');
         $response = $this->makeSadadPaymentRequest($price, $plan_id);
@@ -483,7 +483,7 @@ class PaymentController extends Controller
 
     protected function AirtelPayment(Request $request)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
         $price = $request->input('price');
         $plan_id = $request->input('plan_id');
 
@@ -498,7 +498,7 @@ class PaymentController extends Controller
 
     protected function PhonePePayment(Request $request)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
         $price = $request->input('price');
         $plan_id = $request->input('plan_id');
 
@@ -564,7 +564,7 @@ class PaymentController extends Controller
 
     private function createPayment($accessToken, $price, $planId)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
         $currency = GetcurrentCurrency();
         $formattedCurrency = strtoupper(strtolower($currency));
 

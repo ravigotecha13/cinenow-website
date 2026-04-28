@@ -81,7 +81,13 @@ class AuthController extends Controller
 
             if ($request->has('is_ajax') && $request->is_ajax == 1) {
                 $agent = new Agent();
-                $device_id = $request->getClientIp();
+                // Stable ID across LAN vs localhost — avoids counting same browser as multiple devices
+                // when APP_HOST/IP differs (device-limit kicks users without subscription at ≥ 2 rows).
+                $uaFingerprint = hash(
+                    'sha256',
+                    ($request->userAgent() ?? '').'|'.$agent->browser().'|'.$agent->platform()
+                );
+                $device_id = 'web_'.$uaFingerprint;
                 $device_name = $agent->browser();
                 $platform = $agent->platform();
             } else {
@@ -161,7 +167,7 @@ class AuthController extends Controller
                 [
                     'device_name' => $device_name,
                     'platform' => $platform,
-                    'active_profile'=> $profile->id ?? null,
+                    'active_profile' => $profile ? $profile->id : null,
                 ]
             );
 

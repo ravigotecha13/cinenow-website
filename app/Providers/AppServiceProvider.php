@@ -43,6 +43,8 @@ class AppServiceProvider extends ServiceProvider
     {
         Schema::defaultStringLength(191);
 
+        $this->configureStripeSslCaBundle();
+
         Event::listen(CommandStarting::class, function (CommandStarting $event) {
             if ((dbConnectionStatus() && Schema::hasTable('users') && file_exists(storage_path('installed')) )) {
                 if (in_array($event->command, ['migrate:fresh', 'db:wipe', 'db:seed'])) {
@@ -93,6 +95,27 @@ class AppServiceProvider extends ServiceProvider
                     'services.google.redirect' => $googleRedirectUri ?: config('services.google.redirect'),
                 ]);
             }
+        }
+    }
+
+    /**
+     * Stripe-php sets CURLOPT_CAINFO to its bundled Mozilla CA file. On some Windows/XAMPP PHP+cURL
+     * builds that triggers "unable to get local issuer certificate" (errno 60) even when php.ini
+     * curl.cainfo works. Prefer the same CA bundle PHP already uses, or STRIPE_CAINFO in .env.
+     */
+    protected function configureStripeSslCaBundle(): void
+    {
+        if (! class_exists(\Stripe\Stripe::class)) {
+            return;
+        }
+
+        $path = config('services.stripe.cainfo');
+        if (! is_string($path) || $path === '' || ! is_readable($path)) {
+            $path = ini_get('curl.cainfo') ?: ini_get('openssl.cafile');
+        }
+
+        if (is_string($path) && $path !== '' && is_readable($path)) {
+            \Stripe\Stripe::$caBundlePath = $path;
         }
     }
 }

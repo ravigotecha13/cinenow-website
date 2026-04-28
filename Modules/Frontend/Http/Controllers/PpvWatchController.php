@@ -45,11 +45,11 @@ class PpvWatchController
             ->where('ticket_id', $ticket->id)
             ->first();
 
-        $watchedPercent = (int)($progress->watched_percentage ?? 0);
-        $resumeSeconds  = (int)($progress->last_time_seconds ?? 0);
+        $watchedPercent = (int) ($progress?->watched_percentage ?? 0);
+        $resumeSeconds  = (int) ($progress?->last_time_seconds ?? 0);
 
         // If completed on this ticket, it should NOT be watchable
-        if ($watchedPercent >= 98 || !empty($progress->completed_at)) {
+        if ($watchedPercent >= 98 || !empty($progress?->completed_at)) {
             return response()->json([
                 'status' => 'consumed_or_completed'
             ]);

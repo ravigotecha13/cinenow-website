@@ -200,9 +200,11 @@ if (loginForm) {
             const response = await fetch(`${baseUrl}/api/login?is_ajax=1`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    Accept: 'application/json',
                 },
-                body: formData
+                credentials: 'same-origin',
+                body: formData,
             });
 
             const data = await response.json();

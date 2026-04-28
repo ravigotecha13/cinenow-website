@@ -581,37 +581,74 @@ document.addEventListener('DOMContentLoaded', function () {
     const entertainmentType = button.getAttribute('data-entertainment-type')
     const profileId = button.getAttribute('data-profile-id')
 
-    fetch(`${baseUrl}/continue-watch/resume`, {
-        method: 'POST',
-        headers: {
+    let lastWatchedTime = 0
+    try {
+      if (accessType === 'pay-per-view') {
+        const accessRes = await fetch(`${baseUrl}/ppv/check-access`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+            Accept: 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ entertainment_id: entertainmentId })
+        })
+        const access = await accessRes.json()
+        if (accessRes.status === 401 || access.status === 'unauthenticated') {
+          window.location.href = typeof loginUrl !== 'undefined' ? loginUrl : `${baseUrl}/login`
+          return
+        }
+        const paymentFallback =
+          button.getAttribute('data-payment-url') ||
+          `${baseUrl}/payment-form/pay-per-view?id=${encodeURIComponent(entertainmentId)}&type=${encodeURIComponent(
+            entertainmentType || 'movie'
+          )}`
+        if (access.status === 'purchase_required') {
+          window.location.href = paymentFallback
+          return
+        }
+        if (access.status === 'consumed_or_completed') {
+          alert('Ticket already consumed. Please purchase again.')
+          window.location.href = paymentFallback
+          return
+        }
+        if (access.status === 'ok') {
+          lastWatchedTime = Number(access.resume_time || 0)
+        }
+      } else {
+        const resumeRes = await fetch(`${baseUrl}/continue-watch/resume`, {
+          method: 'POST',
+          headers: {
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
+          },
+          body: JSON.stringify({
             entertainment_id: entertainmentId,
             entertainment_type: entertainmentType,
             profile_id: profileId
+          })
         })
-    })
-      .then((response) => response.json())
-      .then(async (data) => {
-        let lastWatchedTime = data.resume_time || 0;
-        
-        if (accessType === 'paid') {
-          const canPlay = await checkAuthenticationAndDeviceSupport()
-          if (!canPlay) {
-            player.pause()
-            $('#DeviceSupport').modal('show') // Show device support modal if not supported
-            return // Stop further execution
-          }
-        }
-        if (accessType === 'free' || accessType === 'pay-per-view') {
-          playVideo(player, videoUrl, qualityOptions, lastWatchedTime, subtitleInfo)
-        } else {
-          handleSubscription(button, videoUrl, qualityOptions, lastWatchedTime, subtitleInfo)
-        }
-      })
-      .catch((error) => console.error('Error fetching continue watch:', error))
+        const data = await resumeRes.json()
+        lastWatchedTime = data.resume_time || 0
+      }
+    } catch (error) {
+      console.error('Error fetching resume time:', error)
+    }
+
+    if (accessType === 'paid') {
+      const canPlay = await checkAuthenticationAndDeviceSupport()
+      if (!canPlay) {
+        player.pause()
+        $('#DeviceSupport').modal('show') // Show device support modal if not supported
+        return // Stop further execution
+      }
+    }
+    if (accessType === 'free' || accessType === 'pay-per-view') {
+      playVideo(player, videoUrl, qualityOptions, lastWatchedTime, subtitleInfo)
+    } else {
+      handleSubscription(button, videoUrl, qualityOptions, lastWatchedTime, subtitleInfo)
+    }
 
     isWatchHistorySaved = false // Reset flag
   }

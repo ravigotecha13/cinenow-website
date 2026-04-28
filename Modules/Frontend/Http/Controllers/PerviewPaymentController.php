@@ -27,6 +27,7 @@ use Modules\Entertainment\Models\Watchlist;
 use App\Models\User;
 use App\Services\HyperPayService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 
 class PerviewPaymentController extends Controller
@@ -175,23 +176,42 @@ class PerviewPaymentController extends Controller
         ]);
     }
 
-    protected function StripePayment(Request $request)
+    protected function StripePayment(Request $request, $priceFromProcess = null)
     {
-        $baseURL = env('APP_URL');
-        $stripe_secret_key = GetpaymentMethod('stripe_secretkey');
-        $currency = GetcurrentCurrency();
+        $stripe_secret_key = trim((string) GetpaymentMethod('stripe_secretkey'));
+        if ($stripe_secret_key === '') {
+            Log::warning('PPV Stripe: stripe_secretkey missing in settings');
+
+            return response()->json([
+                'error' => 'Stripe is not configured. Add the Stripe secret key in Admin → Payment settings.',
+            ], 503);
+        }
+
+        // Stripe expects lowercase ISO 4217 currency codes
+        $currency = strtolower(preg_replace('/\s+/', '', (string) GetcurrentCurrency())) ?: 'usd';
+        $price = (float) ($priceFromProcess ?? $request->input('price'));
+        if ($price <= 0 || ! is_finite($price)) {
+            return response()->json(['error' => 'Invalid or zero payment amount.'], 422);
+        }
 
         $stripe = new \Stripe\StripeClient($stripe_secret_key);
-        $price = $request->input('price');
 
-        $currenciesWithoutCents = ['XAF', 'XOF', 'JPY', 'KRW'];
-        $priceInCents = in_array(strtoupper($currency), $currenciesWithoutCents) ? $price : (int)round($price * 100);
+        $currenciesWithoutCents = ['xaf', 'xof', 'jpy', 'krw', 'clp', 'vnd', 'pyg'];
+        $priceMinor = in_array($currency, $currenciesWithoutCents, true)
+            ? (int) round($price)
+            : (int) round($price * 100);
+        if ($priceMinor < 1) {
+            return response()->json(['error' => 'The amount is too small for this currency.'], 422);
+        }
 
         // Prefer the authenticated user's email, fall back to any email supplied
         // with the request (e.g. guest checkout form).
         $customerEmail = auth()->check() ? auth()->user()->email : $request->input('email');
 
         try {
+            $successRoute = route('payperview.payment.success', ['gateway' => 'stripe']);
+            $querySep = str_contains($successRoute, '?') ? '&' : '?';
+
             $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
@@ -200,7 +220,7 @@ class PerviewPaymentController extends Controller
                         'product_data' => [
                             'name' => 'Pay Per View',
                         ],
-                        'unit_amount' => $priceInCents,
+                        'unit_amount' => $priceMinor,
                     ],
                     'quantity' => 1,
                 ]],
@@ -211,15 +231,19 @@ class PerviewPaymentController extends Controller
                     'access_duration' => $request->input('access_duration'),
                     'available_for' => $request->input('available_for'),
                     'discount' => $request->input('discount'),
-                    'user_id' => auth()->id(),
-                    'user_email' => $customerEmail,
+                    'user_id' => (string) auth()->id(),
+                    'user_email' => (string) ($customerEmail ?? ''),
                 ],
-                'success_url' => route('payperview.payment.success', ['gateway' => 'stripe']) . '&session_id={CHECKOUT_SESSION_ID}',
+                'success_url' => $successRoute.$querySep.'session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => route('pay-per-view.paymentform', [
+                    'id' => $request->input('movie_id'),
+                    'type' => $request->input('type') ?: 'movie',
+                ]),
             ];
 
             // customer_email prefills the email field on Stripe Checkout and is
             // used for the purchase receipt. Only include a valid address.
-            if (!empty($customerEmail) && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+            if (! empty($customerEmail) && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
                 $sessionPayload['customer_email'] = $customerEmail;
             }
 
@@ -227,20 +251,35 @@ class PerviewPaymentController extends Controller
 
             return response()->json(['redirect' => $checkout_session->url]);
         } catch (\Stripe\Exception\InvalidRequestException $e) {
+            Log::notice('PPV Stripe InvalidRequest', ['message' => $e->getMessage()]);
             $errorMessage = $e->getMessage();
-            if (strpos($errorMessage, "must convert to at least") !== false) {
-                $errorMessage = "The amount entered is too low to process a payment. Please increase the amount and try again.";
+            if (strpos($errorMessage, 'must convert to at least') !== false) {
+                $errorMessage = 'The amount entered is too low to process a payment. Please increase the amount and try again.';
             }
+
             return response()->json(['error' => $errorMessage], 400);
-        } catch (\Exception $e) {
-            return response()->json(['error' => 'Something went wrong. Please try again later.'], 500);
+        } catch (\Stripe\Exception\ApiErrorException $e) {
+            Log::warning('PPV Stripe ApiError', [
+                'message' => $e->getMessage(),
+                'stripe_code' => method_exists($e, 'getStripeCode') ? $e->getStripeCode() : null,
+            ]);
+
+            return response()->json(['error' => $e->getMessage()], 400);
+        } catch (\Throwable $e) {
+            Log::error('PPV Stripe unexpected', ['exception' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
+            return response()->json([
+                'error' => config('app.debug')
+                    ? $e->getMessage()
+                    : 'Something went wrong. Please try again later.',
+            ], 500);
         }
     }
 
     protected function PaystackPayment(Request $request)
     {
         try {
-            $baseURL = env('APP_URL');
+            $baseURL = config('app.url');
             $paystackSecretKey = GetpaymentMethod('paystack_secretkey');
             $price = $request->input('price');
             $priceInKobo = $price * 100;
@@ -294,7 +333,7 @@ class PerviewPaymentController extends Controller
 
     protected function RazorpayPayment(Request $request, $price)
     {
-        $baseURL = env('APP_URL');
+        $baseURL = config('app.url');
         $razorpayKey = GetpaymentMethod('razorpay_publickey');
         $razorpaySecret = GetpaymentMethod('razorpay_secretkey');
         $plan_id = $request->input('plan_id');
@@ -342,7 +381,7 @@ class PerviewPaymentController extends Controller
     protected function FlutterwavePayment(Request $request)
     {
         try {
-            $baseURL = env('APP_URL');
+            $baseURL = config('app.url');
             $flutterwavePublicKey = GetpaymentMethod('flutterwave_publickey');
             $price = $request->input('price');
 
@@ -389,7 +428,7 @@ class PerviewPaymentController extends Controller
     protected function PayPalPayment(Request $request)
     {
         try {
-            $baseURL = env('APP_URL');
+            $baseURL = config('app.url');
             $paypalClientId = GetpaymentMethod('paypal_clientid');
 
             if (!$paypalClientId) {

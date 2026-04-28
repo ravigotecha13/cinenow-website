@@ -65,7 +65,9 @@ return [
      * When true, use the current HTTP request host for storage/ URLs (e.g. phone on LAN calls http://IP:8000/...).
      * Ignored for CLI/queues; use MEDIA_BASE_URL or APP_URL in those cases.
      */
-    'use_request_host_for_public_files' => (bool) env('USE_REQUEST_HOST_FOR_PUBLIC_FILES', false),
+    'use_request_host_for_public_files' => env('USE_REQUEST_HOST_FOR_PUBLIC_FILES') !== null
+        ? (bool) env('USE_REQUEST_HOST_FOR_PUBLIC_FILES')
+        : env('APP_ENV') === 'local',
 
     'mix_url' => env('MIX_ASSET_URL', null),
 

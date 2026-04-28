@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" href="{{ GetSettingValue('favicon') ?? asset('img/logo/favicon.png')   }}">
     <link rel="apple-touch-icon" sizes="76x76" href="{{ GetSettingValue('favicon') ?? asset('img/logo/favicon.png')  }}">
     <meta name="setting_options" content="{{ setting('customization_json') }}">
-    <meta name="base-url" content="{{ env('APP_URL') }}">
+    <meta name="base-url" content="{{ config('app.url') }}">
 
     @include('seo::layouts.header')
     <!-- CSRF Token -->

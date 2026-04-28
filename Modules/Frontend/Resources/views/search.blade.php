@@ -320,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function loadData(containerSelector, apiSection, slickInstance) {
 
 const container = document.querySelector(containerSelector);
- const baseUrl = "{{ env('APP_URL') }}";
+ const baseUrl = "{{ config('app.url') }}";
  const apiUrl = `${baseUrl}/api/get-tranding-data`;
  const csrf_token='{{ csrf_token() }}'
  if (!apiSection) {
