@@ -58,10 +58,4 @@ return [
         'private_key' => env('APPLE_PRIVATE_KEY'),
     ],
 
-    'stripe' => [
-        'cainfo' => env('STRIPE_CAINFO'),
-    ],
-
-
-
 ];

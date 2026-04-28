@@ -8,6 +8,7 @@ use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Translation\Translator;
@@ -43,7 +44,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Schema::defaultStringLength(191);
 
-        $this->configureStripeSslCaBundle();
+        $this->bootstrapSslCertificates();
 
         Event::listen(CommandStarting::class, function (CommandStarting $event) {
             if ((dbConnectionStatus() && Schema::hasTable('users') && file_exists(storage_path('installed')) )) {
@@ -99,23 +100,71 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Stripe-php sets CURLOPT_CAINFO to its bundled Mozilla CA file. On some Windows/XAMPP PHP+cURL
-     * builds that triggers "unable to get local issuer certificate" (errno 60) even when php.ini
-     * curl.cainfo works. Prefer the same CA bundle PHP already uses, or STRIPE_CAINFO in .env.
+     * CA bundle for Stripe and Laravel HTTP client. On hosts with open_basedir (e.g. only web root
+     * + /tmp), probing /etc/ssl/certs/ca-certificates.crt triggers warnings. We only call
+     * is_readable() only inside open_basedir prefixes. Prefer storage/certs/cacert.pem (commit path
+     * via deploy), then php.ini curl.cainfo / openssl.cafile when allowed.
      */
-    protected function configureStripeSslCaBundle(): void
+    protected function bootstrapSslCertificates(): void
     {
-        if (! class_exists(\Stripe\Stripe::class)) {
+        $path = $this->resolveSslCaBundlePath();
+        if ($path === null) {
             return;
         }
 
-        $path = config('services.stripe.cainfo');
-        if (! is_string($path) || $path === '' || ! is_readable($path)) {
-            $path = ini_get('curl.cainfo') ?: ini_get('openssl.cafile');
-        }
-
-        if (is_string($path) && $path !== '' && is_readable($path)) {
+        if (class_exists(\Stripe\Stripe::class)) {
             \Stripe\Stripe::$caBundlePath = $path;
         }
+
+        Http::globalOptions(['verify' => $path]);
+    }
+
+    /**
+     * @return non-empty-string|null
+     */
+    protected function resolveSslCaBundlePath(): ?string
+    {
+        $candidates = array_filter([
+            storage_path('certs/cacert.pem'),
+            ini_get('curl.cainfo') ?: null,
+            ini_get('openssl.cafile') ?: null,
+        ]);
+
+        foreach ($candidates as $path) {
+            if (! is_string($path) || $path === '') {
+                continue;
+            }
+            if (! $this->pathIsAllowedForReadableCheck($path)) {
+                continue;
+            }
+            if (is_readable($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Avoid is_readable() on paths outside open_basedir — PHP emits a warning on restricted hosts.
+     */
+    protected function pathIsAllowedForReadableCheck(string $path): bool
+    {
+        $openBasedir = ini_get('open_basedir');
+        if ($openBasedir === false || $openBasedir === '') {
+            return true;
+        }
+
+        $normalized = str_replace('\\', '/', $path);
+        $separator = PHP_OS_FAMILY === 'Windows' ? ';' : ':';
+
+        foreach (explode($separator, $openBasedir) as $prefix) {
+            $prefix = rtrim(str_replace('\\', '/', $prefix), '/');
+            if ($prefix !== '' && str_starts_with($normalized, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
