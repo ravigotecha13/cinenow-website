@@ -14,6 +14,27 @@ use Modules\Entertainment\Support\EntertainmentLocale;
 
 class MovieDetailDataResourceV2  extends JsonResource
 {
+    private function hmsToSeconds($time): int
+    {
+        if ($time === null || $time === '') {
+            return 0;
+        }
+
+        if (is_numeric($time)) {
+            return max(0, (int) $time);
+        }
+
+        $parts = array_map('intval', explode(':', (string) $time));
+        if (count($parts) === 3) {
+            return max(0, ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2]);
+        }
+        if (count($parts) === 2) {
+            return max(0, ($parts[0] * 60) + $parts[1]);
+        }
+
+        return 0;
+    }
+
     /**
      * Transform the resource into an array.
      */
@@ -86,6 +107,8 @@ class MovieDetailDataResourceV2  extends JsonResource
             'imdb_rating' => $this->IMDb_rating ?? $this->imdb_rating ?? null,
             'content_rating' => $this->content_rating,
             'duration' => $this->duration,
+            'watched_time' => $this->watched_time,
+            'resume_time' => $this->hmsToSeconds($this->watched_time),
             'release_date' => $this->release_date,
             'is_restricted' => $this->is_restricted,
             'video_upload_type' => $this->video_upload_type,

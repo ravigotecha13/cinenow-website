@@ -8,6 +8,52 @@ use Illuminate\Support\Facades\DB;
 
 class PpvWatchController
 {
+    private function parseSecondsValue($value): int
+    {
+        if ($value === null || $value === '') {
+            return 0;
+        }
+
+        if (is_numeric($value)) {
+            return max(0, (int) $value);
+        }
+
+        if (is_string($value) && strpos($value, ':') !== false) {
+            $parts = array_map('intval', explode(':', $value));
+            if (count($parts) === 3) {
+                return max(0, ($parts[0] * 3600) + ($parts[1] * 60) + $parts[2]);
+            }
+            if (count($parts) === 2) {
+                return max(0, ($parts[0] * 60) + $parts[1]);
+            }
+        }
+
+        return 0;
+    }
+
+    private function resolveLastSeconds(Request $request): int
+    {
+        $raw = $request->input('last_time_seconds');
+        if ($raw === null || $raw === '') {
+            $raw = $request->input('current_time');
+        }
+        if ($raw === null || $raw === '') {
+            $raw = $request->input('resume_time');
+        }
+
+        return $this->parseSecondsValue($raw);
+    }
+
+    private function resolveWatchedPercentage(Request $request): int
+    {
+        $raw = $request->input('watched_percentage');
+        if ($raw === null || $raw === '') {
+            $raw = $request->input('percentage');
+        }
+
+        return min(100, max(0, (int) $raw));
+    }
+
     /**
      * AUTHORITATIVE access check:
      * - if no active ticket => purchase_required
@@ -88,8 +134,8 @@ class PpvWatchController
             return response()->json(['status' => 'expired']);
         }
 
-        $lastSeconds = max(0, (int) $request->last_time_seconds);
-        $percent     = min(100, max(0, (int) $request->watched_percentage));
+        $lastSeconds = $this->resolveLastSeconds($request);
+        $percent     = $this->resolveWatchedPercentage($request);
 
         // If already completed, do not allow updating (prevents “un-completing”)
         $existing = DB::table('watch_progress')

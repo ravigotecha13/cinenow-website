@@ -219,8 +219,10 @@ class WatchlistController extends Controller
         : getCurrentProfile($user_id, $request);
 
 
-        $continuewatch = $continuewatchList->where('user_id', $user_id)->where('profile_id', $profile_id);
-        $continuewatch = $continuewatchList->orderBy('updated_at', 'desc');
+        $continuewatch = $continuewatchList
+            ->where('user_id', $user_id)
+            ->where('profile_id', $profile_id)
+            ->orderBy('updated_at', 'desc');
         $continuewatch = $continuewatch->paginate($perPage);
 
         $responseData = ContinueWatchResource::collection($continuewatch);
@@ -255,7 +257,13 @@ class WatchlistController extends Controller
         $watch_data = $request->all();
 
         \Log::info($watch_data);
-        $watch_data['total_watched_time'] = isset($watch_data['total_watched_time']) && substr_count($watch_data['total_watched_time'], ':') == 1 ? $watch_data['total_watched_time'] . ':00' : $watch_data['total_watched_time'];
+        // Backward compatibility: some clients send total_time / watched_time in seconds.
+        if (!isset($watch_data['total_watched_time']) && isset($watch_data['total_time'])) {
+            $watch_data['total_watched_time'] = $watch_data['total_time'];
+        }
+
+        $watch_data['watched_time'] = $this->normalizeTimeValue($watch_data['watched_time'] ?? null);
+        $watch_data['total_watched_time'] = $this->normalizeTimeValue($watch_data['total_watched_time'] ?? null);
         $watch_data['user_id'] = $user->id;
 
         $profile_id = resolveContinueWatchProfileId((int) $user->id, $request);
@@ -324,6 +332,24 @@ class WatchlistController extends Controller
         Cache::flush();
 
         return response()->json(['status' => true, 'message' => __('movie.save_msg')]);
+    }
+
+    private function normalizeTimeValue($value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_numeric($value)) {
+            return gmdate('H:i:s', max(0, (int) $value));
+        }
+
+        $stringValue = trim((string) $value);
+        if (substr_count($stringValue, ':') === 1) {
+            return $stringValue . ':00';
+        }
+
+        return $stringValue;
     }
     public function deleteContinueWatch(Request $request)
     {
