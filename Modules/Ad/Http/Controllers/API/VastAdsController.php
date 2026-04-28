@@ -21,26 +21,14 @@ class VastAdsController extends Controller
     public function getActiveAds(Request $request)
     {
         try {
-            $user = User::with('subscriptionPackage')->find(auth()->id());
+            $user = auth()->check() ? User::with('subscriptionPackage')->find(auth()->id()) : null;
 
-            // Check if user has Ads disabled in their subscription plan
-            $subscription = $user->subscriptionPackage;
-            if ($subscription && isset($subscription['plan_type'])) {
-                $planLimitations = json_decode($subscription['plan_type'], true);
-                foreach ($planLimitations as $limitation) {
-                    if (
-                        isset($limitation['limitation_title']) &&
-                        strtolower($limitation['limitation_title']) === 'ads' &&
-                        isset($limitation['limitation_value']) &&
-                        $limitation['limitation_value'] == 0
-                    ) {
-                        return response()->json([
-                            'success' => true,
-                            'data' => [],
-                            'message' => 'Ads are disabled in your subscription.'
-                        ]);
-                    }
-                }
+            if ($user && subscription_plan_blocks_streaming_ads($user)) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [],
+                    'message' => 'Ads are disabled in your subscription.',
+                ]);
             }
 
             $contentId = $request->input('content_id');

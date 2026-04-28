@@ -101,12 +101,16 @@ class EpisodeDetailResourceV2 extends JsonResource
             'poster_image' =>setBaseUrlWithFileName($this->poster_url),
             'language' => $this->language,
             'video_links' => $this->EpisodeStreamContentMapping ?? null,
+            'quality_playlist' => video_quality_playlist_from_links(
+                $this->EpisodeStreamContentMapping ?? null,
+                $this->video_url_input,
+                $this->video_upload_type
+            ),
             'plan' => $this->plan_level,
             'genres' => GenresResource::collection($this->genre_data),
             'subtitle_info' => $this->enable_subtitle == 1 ? SubtitleResource::collection($this->subtitles) : null,
             // 'tvShowLinks' => $tvShowLinks,
-            'more_items' =>  $this->moreItems,
-            // TvshowResource::collection($this->moreItems),
+            'more_items' => TvshowResource::collection($this->moreItems ?? []),
             'download_id' => !empty($this->is_download) ? $this->is_download: null,
             'price' => (float)$this->price,
             'discounted_price' => round((float)$this->price - ($this->price * ($this->discount / 100)), 2),

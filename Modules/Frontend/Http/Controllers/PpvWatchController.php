@@ -2,6 +2,7 @@
 
 namespace Modules\Frontend\Http\Controllers;
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -144,33 +145,46 @@ class PpvWatchController
 
     private function consumeTicketInternal(int $userId, int $entertainmentId): void
     {
-        DB::transaction(function () use ($userId, $entertainmentId) {
-            // lock active ticket
-            $ticket = DB::table('ppv_tickets')
-                ->where('user_id', $userId)
-                ->where('entertainment_id', $entertainmentId)
-                ->where('status', 'active')
-                ->orderByDesc('id')
-                ->lockForUpdate()
-                ->first();
+        try {
+            DB::transaction(function () use ($userId, $entertainmentId) {
+                $ticket = DB::table('ppv_tickets')
+                    ->where('user_id', $userId)
+                    ->where('entertainment_id', $entertainmentId)
+                    ->where('status', 'active')
+                    ->orderByDesc('id')
+                    ->lockForUpdate()
+                    ->first();
 
-            if (!$ticket) return;
+                if (!$ticket) return;
 
-            DB::table('ppv_tickets')
-                ->where('id', $ticket->id)
-                ->update([
-                    'status' => 'consumed',
-                    'consumed_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                // Re-check inside transaction to avoid double-consume race condition
+                $alreadyConsumed = DB::table('ppv_tickets')
+                    ->where('id', $ticket->id)
+                    ->where('status', 'consumed')
+                    ->exists();
 
-            DB::table('watch_progress')
-                ->where('ticket_id', $ticket->id)
-                ->update([
-                    'watched_percentage' => 100,
-                    'completed_at' => now(),
-                    'updated_at' => now(),
-                ]);
-        });
+                if ($alreadyConsumed) return;
+
+                DB::table('ppv_tickets')
+                    ->where('id', $ticket->id)
+                    ->where('status', 'active')
+                    ->update([
+                        'status' => 'consumed',
+                        'consumed_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+
+                DB::table('watch_progress')
+                    ->where('ticket_id', $ticket->id)
+                    ->update([
+                        'watched_percentage' => 100,
+                        'completed_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            });
+        } catch (UniqueConstraintViolationException $e) {
+            // Ticket was already consumed (e.g. concurrent request or re-purchase scenario).
+            // Silently ignore — the end state is correct.
+        }
     }
 }

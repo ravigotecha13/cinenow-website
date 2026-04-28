@@ -20,7 +20,9 @@ class CastCrewController extends Controller
         if ($request->has('search')) {
             $searchTerm = $request->search;
             $castcrew_list->where(function ($query) use ($searchTerm) {
-                $query->where('name', 'like', "%{$searchTerm}%");
+                $query->where('name', 'like', "%{$searchTerm}%")
+                    ->orWhere('name_en', 'like', "%{$searchTerm}%")
+                    ->orWhere('name_ar', 'like', "%{$searchTerm}%");
             });
         }
 

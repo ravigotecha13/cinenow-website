@@ -40,6 +40,7 @@
     "/modules/video/style.css": "/modules/video/style.css",
     "/modules/genres/style.css": "/modules/genres/style.css",
     "/modules/castcrew/style.css": "/modules/castcrew/style.css",
+    "/css/hero-thumbnail.css": "/css/hero-thumbnail.css",
     "/css/app.css": "/css/app.css",
     "/css/pro.css": "/css/pro.css",
     "/css/customizer.css": "/css/customizer.css",
@@ -53,5 +54,8 @@
     "/webfonts/fa-v4compatibility.woff2": "/webfonts/fa-v4compatibility.woff2",
     "/css/backend.css": "/css/backend.css",
     "/css/icon.min.css": "/css/icon.min.css",
-    "/js/backend.js": "/js/backend.js"
+    "/js/backend.js": "/js/backend.js",
+    "/js/ott-preroll-ads.js": "/js/ott-preroll-ads.js",
+    "/js/ott-player-ads.js": "/js/ott-player-ads.js",
+    "/js/ott-midroll-ads.js": "/js/ott-midroll-ads.js"
 }

@@ -9,7 +9,7 @@
     <nav class="nav navbar navbar-expand-xl navbar-light iq-navbar header-hover-menu py-xl-0">
         <div class="container-fluid navbar-inner">
             <div class="d-flex align-items-center justify-content-between w-100 landing-header cinenow-main-header">
-                <div class="header-leading d-flex align-items-center gap-3 gap-xl-0 flex-grow-1 flex-xl-grow-0">
+                <div class="header-leading d-flex align-items-center gap-3 flex-grow-1 flex-xl-grow-0">
                     <button type="button" data-bs-toggle="offcanvas" data-bs-target="#navbar_main"
                         aria-controls="navbar_main"
                         class="d-xl-none btn btn-primary rounded-pill toggle-rounded-btn flex-shrink-0">
@@ -18,8 +18,6 @@
                     @include('frontend::components.partials.logo')
                     @include('frontend::components.partials.horizontal-nav-inline')
                 </div>
-
-                @include('frontend::components.partials.horizontal-nav')
 
                 <div class="header-trailing flex-shrink-0">
                 <div class="right-panel">
@@ -281,7 +279,7 @@
             name="security_toggle"
             id="security_toggle"
             value="1"
-            data-security-url="{{ route('security-control') }}"
+            data-security-url="{{ route('security-control.enable') }}"
             data-disable-url="{{ route('disable-security') }}"
             {{ auth()->user()->is_parental_lock_enable ? 'checked' : '' }}
         >
@@ -403,10 +401,14 @@
                 </div>
                 </div>
             </div>
+            @include('frontend::components.partials.horizontal-nav')
         </div>
     </nav>
 </header>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+{{-- Font Awesome icons are only needed for a few header glyphs — load async so it doesn't block render --}}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      media="print" onload="this.media='all'" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" /></noscript>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

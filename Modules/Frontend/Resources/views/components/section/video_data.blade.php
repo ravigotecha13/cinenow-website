@@ -155,7 +155,7 @@
                         {{-- @dd($data); --}}
                         <ul class="actions-list list-inline m-0 p-0 d-flex align-items-center flex-wrap gap-3">
                             <li>
-                                <x-watchlist-button :entertainment-id="$data['id']" :in-watchlist="$data['is_watch_list']" entertainmentType="video" customClass="watch-list-btn" />
+                                <x-watchlist-button :entertainment-id="$data['id']" :in-watchlist="$data['is_watch_list'] ?? false" entertainmentType="video" customClass="watch-list-btn" />
                             </li>
                             <li class="position-relative share-button dropend dropdown">
                                 <button type="button" class="action-btn btn btn-dark" data-bs-toggle="dropdown" aria-expanded="false">

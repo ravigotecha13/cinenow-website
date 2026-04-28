@@ -610,6 +610,13 @@ class DashboardController extends Controller
             return response()->json(['status' => 'unauthenticated']);
         }
     
+        if (! $request->filled('profile_id')) {
+            $resolvedProfile = resolveContinueWatchProfileId((int) $user->id, $request);
+            if ($resolvedProfile !== null) {
+                $request->merge(['profile_id' => $resolvedProfile]);
+            }
+        }
+
         $request->validate([
             'entertainment_id'   => 'required|integer',
             'entertainment_type' => 'required|string',
@@ -722,7 +729,11 @@ class DashboardController extends Controller
             return response()->json(['resume_time' => 0]);
         }
 
-        $profile_id = $request->profile_id ?? getCurrentProfile($user->id, $request);
+        $profile_id = resolveContinueWatchProfileId((int) $user->id, $request);
+
+        if ($profile_id === null) {
+            return response()->json(['resume_time' => 0]);
+        }
 
         $query = ContinueWatch::where('user_id', $user->id)
             ->where('entertainment_id', $request->entertainment_id)

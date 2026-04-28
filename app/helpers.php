@@ -591,10 +591,11 @@ function formatCurrency($number, $noOfDecimal, $decimalSeparator, $thousandSepar
 
         if ($noOfDecimal > 0) {
             $currencyString .= $integerPart . $decimalSeparator . $decimalPart;
+        } else {
+            $currencyString .= $integerPart;
         }
-        if ($currencyPosition == 'right_with_space') {
-            $currencyString .= ' ';
-        }
+        // Space before suffix symbol (e.g. Arabic ر.س) — avoids "50.00ر.س" and fixes bidi with mixed scripts
+        $currencyString .= ' ';
         $currencyString .= $currencySymbol;
     }
 
@@ -752,7 +753,30 @@ function getCurrentProfile($user_id, $request)
         ->value('active_profile');
 }
 
+/**
+ * Profile id for continue_watch (web SPA + API): explicit request > session > device/IP row > first user profile.
+ * Web often has no Device row matching IP; mobile apps send profile_id explicitly.
+ */
+function resolveContinueWatchProfileId(int $userId, \Illuminate\Http\Request $request): ?int
+{
+    if ($request->filled('profile_id')) {
+        return (int) $request->profile_id;
+    }
 
+    $sessionId = getCurrentProfileSession('id');
+    if (! empty($sessionId)) {
+        return (int) $sessionId;
+    }
+
+    $devicePid = getCurrentProfile($userId, $request);
+    if ($devicePid !== null && $devicePid !== '') {
+        return (int) $devicePid;
+    }
+
+    $first = UserMultiProfile::where('user_id', $userId)->orderBy('id')->value('id');
+
+    return $first ? (int) $first : null;
+}
 
 function isSmtpConfigured()
 {
@@ -923,6 +947,32 @@ function extractFileNameFromUrl($url = '')
 //     return setDefaultImage();
 // }
 
+/**
+ * Public absolute URL for a path under the web root (e.g. storage/streamit-laravel/file.mp4).
+ * Priority: MEDIA_BASE_URL, then (optional) current request host, then APP_URL.
+ */
+function media_public_url(string $path): string
+{
+    $path = ltrim($path, '/');
+
+    $fromConfig = config('app.media_base_url');
+    if (is_string($fromConfig) && $fromConfig !== '') {
+        return rtrim($fromConfig, '/') . '/' . $path;
+    }
+
+    if (config('app.use_request_host_for_public_files')
+        && ! app()->runningInConsole()
+        && function_exists('request')
+        && request()
+    ) {
+        $base = rtrim(request()->getSchemeAndHttpHost() . request()->getBasePath(), '/');
+
+        return $base . '/' . $path;
+    }
+
+    return rtrim((string) config('app.url'), '/') . '/' . $path;
+}
+
 function setBaseUrlWithFileName($url = '')
 {
     // Return a default image if the URL is empty
@@ -952,7 +1002,7 @@ function setBaseUrlWithFileName($url = '')
 
         // Return local asset path if the file exists
         if (file_exists($filePath)) {
-            return asset("storage/streamit-laravel/$fileName");
+            return media_public_url("storage/streamit-laravel/$fileName");
         }
     } else {
         // Handle remote storage
@@ -992,7 +1042,7 @@ function setBaseUrlWithFileNameV2($url = '')
 
         // Return local asset path if the file exists
         if (file_exists($filePath)) {
-            return asset("storage/streamit-laravel/$fileName");
+            return media_public_url("storage/streamit-laravel/$fileName");
         }
     } else {
         // Handle remote storage
@@ -1229,6 +1279,95 @@ function getActionPlan($slug)
 
 }
 
+/**
+ * True when the user's active subscription is "ad-free" (ads limitation off on the plan).
+ *
+ * Uses live {@see \Modules\Subscriptions\Models\PlanLimitationMapping} for
+ * {@see \Modules\Subscriptions\Models\Subscription::$plan_id} so changes in
+ * `/app/plans/{id}/edit` apply immediately. The `subscriptions.plan_type` column
+ * is only a checkout snapshot and does not update when a plan is edited.
+ */
+function subscription_plan_blocks_streaming_ads($user): bool
+{
+    if (!$user instanceof \App\Models\User) {
+        return false;
+    }
+
+    $user->loadMissing('subscriptionPackage');
+    $subscription = $user->subscriptionPackage;
+    if (!$subscription) {
+        return false;
+    }
+
+    if (!empty($subscription->plan_id)) {
+        $adsRow = \Modules\Subscriptions\Models\PlanLimitationMapping::query()
+            ->where('plan_id', $subscription->plan_id)
+            ->where('limitation_slug', 'ads')
+            ->first();
+
+        if ($adsRow !== null) {
+            $v = $adsRow->limitation_value;
+            if ($v === null || $v === '') {
+                return false;
+            }
+
+            return (int) $v === 0;
+        }
+    }
+
+    $raw = $subscription->getAttribute('plan_type');
+    if ($raw === null || $raw === '') {
+        return false;
+    }
+
+    if (is_array($raw)) {
+        $planLimitations = $raw;
+    } elseif (is_string($raw)) {
+        $decoded = json_decode($raw, true);
+        $planLimitations = is_array($decoded) ? $decoded : null;
+    } else {
+        $planLimitations = null;
+    }
+
+    if (!is_array($planLimitations)) {
+        return false;
+    }
+
+    foreach ($planLimitations as $limitation) {
+        if (!is_array($limitation)) {
+            continue;
+        }
+
+        $slug = strtolower((string) ($limitation['slug'] ?? ''));
+        $title = strtolower(trim((string) ($limitation['limitation_title'] ?? '')));
+        $isAdsRow = $slug === 'ads' || $title === 'ads';
+
+        if (!$isAdsRow) {
+            continue;
+        }
+
+        if (!array_key_exists('limitation_value', $limitation)) {
+            continue;
+        }
+
+        $v = $limitation['limitation_value'];
+
+        if ($v === null || $v === '') {
+            continue;
+        }
+
+        if ($v === false || $v === 0 || $v === '0' || $v === 0.0) {
+            return true;
+        }
+
+        if (is_string($v) && strtolower($v) === 'false') {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 
 function setCurrentProfileSession($checkMultiProfile = 0, $id = NULL)
 {
@@ -1400,6 +1539,144 @@ function getCurrencySymbolByCurrency($currency)
     $currency = Currency::where('currency_code', strtoupper($currency))->first();
     $currency_symbol = $currency ? $currency->currency_symbol : '₹';
     return $currency_symbol;
+}
+
+/**
+ * Numeric sort key for stream quality labels (higher = sharper). Used for YouTube-style ordering.
+ */
+function video_stream_quality_sort_key(string $raw): int
+{
+    $q = strtolower(trim($raw));
+    if (preg_match('/(\d{3,4})\s*p\b/', $q, $m)) {
+        return (int) $m[1];
+    }
+    if (str_contains($q, '4320') || str_contains($q, '8k')) {
+        return 4320;
+    }
+    if (str_contains($q, '2160') || str_contains($q, '4k') || str_contains($q, 'uhd')) {
+        return 2160;
+    }
+    if (str_contains($q, '1440') || str_contains($q, 'qhd')) {
+        return 1440;
+    }
+    if (str_contains($q, '1080') || str_contains($q, 'fhd')) {
+        return 1080;
+    }
+    if (str_contains($q, '720')) {
+        return 720;
+    }
+    if (str_contains($q, '480')) {
+        return 480;
+    }
+    if (str_contains($q, '360')) {
+        return 360;
+    }
+    if (str_contains($q, '240')) {
+        return 240;
+    }
+
+    return 0;
+}
+
+/**
+ * Human-readable quality label (480p … 2160p).
+ */
+function video_stream_quality_display_label(string $raw): string
+{
+    $t = trim($raw);
+    if ($t === '') {
+        return 'Auto';
+    }
+    if (preg_match('/^(\d{3,4})\s*P?$/i', $t, $m)) {
+        return strtolower($m[1]) . 'p';
+    }
+    $l = strtolower($t);
+    if (str_contains($l, '4k') || str_contains($l, '2160')) {
+        return '2160p';
+    }
+    if (str_contains($l, '8k') || str_contains($l, '4320')) {
+        return '4320p';
+    }
+
+    return $t;
+}
+
+/**
+ * Normalize stream rows (movie/episode mappings) into a sorted playlist for players & mobile apps.
+ *
+ * @param  \Illuminate\Support\Collection|iterable|null  $streamLinks
+ * @return  list<array{label: string, url: string, type: string}>
+ */
+function video_quality_playlist_from_links($streamLinks, ?string $fallbackUrl = null, ?string $fallbackUploadType = 'URL'): array
+{
+    $rows = [];
+    if ($streamLinks !== null) {
+        foreach ($streamLinks as $link) {
+            if (is_array($link)) {
+                $quality = (string) ($link['quality'] ?? '');
+                $type = (string) ($link['type'] ?? 'URL');
+                $url = (string) ($link['url'] ?? '');
+            } elseif (is_object($link)) {
+                $quality = (string) ($link->quality ?? '');
+                $type = (string) ($link->type ?? 'URL');
+                $url = (string) ($link->url ?? '');
+            } else {
+                continue;
+            }
+            $url = trim($url);
+            if ($url === '') {
+                continue;
+            }
+            if ($type === 'Local') {
+                $url = setBaseUrlWithFileName($url);
+            }
+            $rows[] = [
+                'label' => video_stream_quality_display_label($quality),
+                'url' => $url,
+                'type' => $type,
+                '_sort' => video_stream_quality_sort_key($quality),
+            ];
+        }
+    }
+
+    usort($rows, static function ($a, $b) {
+        return $b['_sort'] <=> $a['_sort'];
+    });
+
+    $out = [];
+    foreach ($rows as $r) {
+        unset($r['_sort']);
+        $out[] = $r;
+    }
+
+    if ($out === [] && $fallbackUrl !== null && trim($fallbackUrl) !== '') {
+        $u = ($fallbackUploadType === 'Local') ? setBaseUrlWithFileName($fallbackUrl) : $fallbackUrl;
+        $out[] = [
+            'label' => 'Auto',
+            'url' => $u,
+            'type' => (string) $fallbackUploadType,
+        ];
+    }
+
+    return $out;
+}
+
+/**
+ * Subtitle format for Artplayer / ExoPlayer style clients (from file URL path).
+ */
+function subtitle_file_format_for_player(?string $url): string
+{
+    if ($url === null || trim($url) === '') {
+        return 'srt';
+    }
+    $path = parse_url($url, PHP_URL_PATH) ?: $url;
+    $ext = strtolower(pathinfo((string) $path, PATHINFO_EXTENSION));
+
+    return match ($ext) {
+        'vtt' => 'vtt',
+        'ass', 'ssa' => 'ass',
+        default => 'srt',
+    };
 }
 
 /**

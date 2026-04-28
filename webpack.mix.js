@@ -45,6 +45,14 @@ mix.js('Modules/Frontend/Resources/assets/js/auth.js', 'public/js/auth.min.js')
 mix.js('Modules/Frontend/Resources/assets/js/entertainment.js', 'public/js/entertainment.min.js')
 mix.js('Modules/Frontend/Resources/assets/js/videoplayer.js', 'public/js/videoplayer.min.js')
 
+// OTT pre-roll / mid-roll (vanilla; copy as-is for Blade + Artplayer)
+mix.copy('Modules/Frontend/Resources/assets/js/ott-preroll-ads.js', 'public/js/ott-preroll-ads.js')
+mix.copy('Modules/Frontend/Resources/assets/js/ott-player-ads.js', 'public/js/ott-player-ads.js')
+mix.copy('Modules/Frontend/Resources/assets/js/ott-midroll-ads.js', 'public/js/ott-midroll-ads.js')
+
+// Hero / movie detail video + pre-roll (scoped CSS; keeps Blade lean, cache-friendly via mix)
+mix.sass('Modules/Frontend/Resources/assets/sass/hero-thumbnail.scss', 'public/css/hero-thumbnail.css')
+
 
 
 

@@ -73,6 +73,10 @@ class LanguageServiceProvider extends ServiceProvider
 
         $sourcePath = base_path('Modules/Language/Resources/views');
 
+        if (! is_dir($sourcePath)) {
+            return;
+        }
+
         $this->publishes([
             $sourcePath => $viewPath,
         ], ['views', $this->moduleNameLower.'-module-views']);

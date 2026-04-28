@@ -505,37 +505,47 @@ class SettingsController extends Controller
             if (in_array($key, $validSettings)) {
                 $existingSetting = Setting::where('name', $key)->first();
 
-                $mimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/vnd.microsoft.icon'];
+                $allowedImageMimes = [
+                    'image/jpeg',
+                    'image/jpg',
+                    'image/png',
+                    'image/gif',
+                    'image/webp',
+                    'image/vnd.microsoft.icon',
+                    'image/x-icon',
+                    'image/svg+xml',
+                ];
+                $allowedImageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'ico', 'svg'];
+
                 if (gettype($val) == 'object') {
-                    if ($val->getType() == 'file' && in_array($val->getmimeType(), $mimeTypes)) {
-                        if ($existingSetting) {
-                            $mediaItems = $existingSetting->addMedia($val)->toMediaCollection($key);
-                            $existingSetting->update(['val' => $mediaItems->getUrl()]);
-                        } else {
-                            $setting = Setting::add($key, '', Setting::getDataType($key), Setting::getType($key));
-                            $mediaItems = $setting->addMedia($val)->toMediaCollection($key);
-                            $setting->update(['val' => $mediaItems->getUrl()]);
+                    if ($val->getType() == 'file' && $val->isValid()) {
+                        $mime = strtolower((string) $val->getMimeType());
+                        $ext = strtolower((string) $val->getClientOriginalExtension());
+                        $isAllowedImage = in_array($mime, $allowedImageMimes, true)
+                            || in_array($ext, $allowedImageExtensions, true);
+
+                        if ($isAllowedImage) {
+                            if ($existingSetting) {
+                                $existingSetting->clearMediaCollection($key);
+                                $mediaItems = $existingSetting->addMedia($val)->toMediaCollection($key);
+                                $existingSetting->update(['val' => $mediaItems->getUrl()]);
+                            } else {
+                                $setting = Setting::add($key, '', Setting::getDataType($key), Setting::getType($key));
+                                $mediaItems = $setting->addMedia($val)->toMediaCollection($key);
+                                $setting->update(['val' => $mediaItems->getUrl()]);
+                            }
                         }
                     }
                 } else {
                     if ($existingSetting) {
-                        // Update existing setting
                         $existingSetting->update([
                             'val' => $val,
                             'type' => Setting::getType($key),
-                            'datatype' => Setting::getDataType($key)
+                            'datatype' => Setting::getDataType($key),
                         ]);
                     } else {
-                        // Create new setting
                         Setting::add($key, $val, Setting::getDataType($key), Setting::getType($key));
                     }
-                    if ($key === 'midtrans_server_key' && $request->has('midtrans_server_key')) {
-                        $val = $request->input('midtrans_server_key');
-                    }
-                    if ($key === 'midtrans_client_key' && $request->has('midtrans_client_key')) {
-                        $val = $request->input('midtrans_client_key');
-                    }
-                    $setting = Setting::add($key, $val, Setting::getDataType($key), Setting::getType($key));
                 }
             }
         }
@@ -624,8 +634,11 @@ class SettingsController extends Controller
             $field = $setting->name;
             $value = $setting->val;
 
-            if (in_array($field, ['logo', 'mini_logo', 'dark_logo', 'dark_mini_logo', 'favicon'])) {
-                $value = asset($value);
+            if (in_array($field, ['logo', 'mini_logo', 'dark_logo', 'dark_mini_logo', 'light_logo', 'favicon'], true)) {
+                $value = (string) $value;
+                if ($value !== '' && ! str_starts_with($value, 'http://') && ! str_starts_with($value, 'https://')) {
+                    $value = asset($value);
+                }
             }
 
             $data[$field] = $value;

@@ -121,6 +121,11 @@ class MovieDetailResource  extends JsonResource
             'reviews' => ReviewResource::collection($this->reviews),
             'three_reviews' => ReviewResource::collection($this->reviews->take(3)),
             'video_links' => $this->entertainmentStreamContentMappings ?? null,
+            'quality_playlist' => video_quality_playlist_from_links(
+                $this->entertainmentStreamContentMappings ?? null,
+                $this->video_url_input,
+                $this->video_upload_type
+            ),
             'casts' => CastCrewListResource::collection($casts),
             'directors' => CastCrewListResource::collection($directors),
             // 'more_items' => MoviesResource::collection($more_items),

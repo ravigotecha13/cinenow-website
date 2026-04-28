@@ -14,7 +14,17 @@ class Genres extends BaseModel
      */
     protected $table = 'genres';
 
-    protected $fillable = ['name','slug','file_url', 'description', 'status'];
+    protected $fillable = [
+        'name',
+        'name_en',
+        'name_ar',
+        'slug',
+        'file_url',
+        'description',
+        'description_en',
+        'description_ar',
+        'status',
+    ];
 
 
     public function setSlugAttribute($value)
@@ -22,7 +32,8 @@ class Genres extends BaseModel
         $this->attributes['slug'] = slug_format(trim($value));
 
         if (empty($value)) {
-            $this->attributes['slug'] = slug_format(trim($this->attributes['name']));
+            $fallback = $this->attributes['name_en'] ?? $this->attributes['name'] ?? '';
+            $this->attributes['slug'] = slug_format(trim($fallback));
         }
     }
 
@@ -35,6 +46,15 @@ class Genres extends BaseModel
     protected static function boot()
     {
         parent::boot();
+
+        static::saving(function ($genre) {
+            if (empty($genre->name_en) && ! empty($genre->name)) {
+                $genre->name_en = $genre->name;
+            }
+            if (empty($genre->description_en) && ! empty($genre->description)) {
+                $genre->description_en = $genre->description;
+            }
+        });
 
         static::deleting(function ($genre) {
 

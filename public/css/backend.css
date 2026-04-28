@@ -14473,6 +14473,7 @@ option:disabled {
   text-align: center;
   z-index: 99;
   width: 100px;
+  pointer-events: none;
 }
 .uploaded-image .remove-media-icon {
   position: absolute;
@@ -14487,11 +14488,15 @@ option:disabled {
   line-height: 20px;
   text-align: center;
   font-size: 1.3rem !important;
+  pointer-events: auto;
+  cursor: pointer;
 }
-.uploaded-image img {
+.uploaded-image img,
+.uploaded-image video {
   width: 100%;
   -o-object-fit: cover;
      object-fit: cover;
+  pointer-events: none;
 }
 
 .table {

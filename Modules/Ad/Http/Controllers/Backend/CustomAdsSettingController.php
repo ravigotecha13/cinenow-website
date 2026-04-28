@@ -219,6 +219,8 @@ class CustomAdsSettingController extends Controller
     {
         try {
             $data = $request->all();
+            $data['type'] = 'video';
+            $data['placement'] = 'player';
             $type = strtolower($request->input('type'));
             $urlType = strtolower($request->input('url_type'));
 
@@ -319,9 +321,10 @@ class CustomAdsSettingController extends Controller
         if (empty($data['skip_enabled'])) {
             $data['skip_after'] = null;
         }
-        $type = strtolower((string) $request->input('type', ''));
+        $type = 'video';
         $urlType = strtolower((string) $request->input('url_type', ''));
-        $data['type'] = $type;
+        $data['type'] = 'video';
+        $data['placement'] = 'player';
         $data['url_type'] = $urlType;
 
         $media = null;

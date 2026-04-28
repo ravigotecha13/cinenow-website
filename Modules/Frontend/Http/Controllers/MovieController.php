@@ -249,12 +249,8 @@ class MovieController extends Controller
 
         $movieId = $id;
         $userId = auth()->id();
-        $cacheKey = 'movie_' . $movieId . '_' . app()->getLocale();
 
-        $data = Cache::get($cacheKey);
-
-        if (!$data) {
-            $movie = Entertainment::where('id', $movieId)
+        $movie = Entertainment::where('id', $movieId)
                 ->with([
                     'entertainmentGenerMappings',
                     'plan',
@@ -266,6 +262,10 @@ class MovieController extends Controller
                     'entertainmentSubtitleMappings'
                 ])
                 ->first();
+
+        if (!$movie) {
+            abort(404);
+        }
 
             $reviews = $movie->entertainmentReviews ?? collect();
 
@@ -339,12 +339,6 @@ class MovieController extends Controller
             $data = new MovieDetailResource($movie);
             $data['more_items'] = MoviesResource::collection($more_items);
 
-
-
-            // Cache the base data
-            Cache::put($cacheKey, $data);
-        }
-
         // Convert data to array for manipulation
         $data = $data->toArray($request);
 
@@ -352,6 +346,10 @@ class MovieController extends Controller
         $movie = Entertainment::where('id', $movieId)
             ->with('entertainmentGenerMappings')
             ->first();
+
+        if (!$movie) {
+            abort(404);
+        }
 
         $genres = $movie->entertainmentGenerMappings;
         $genre_ids = $genres->pluck('genre_id')->toArray();
@@ -368,20 +366,23 @@ class MovieController extends Controller
 
         $data['more_items'] = MoviesResource::collection($more_items);
 
-        $bannerForTrailer = Banner::query()
-            ->where('type_id', $movieId)
-            ->where('type', 'movie')
-            ->where('status', 1)
-            ->whereIn('banner_for', ['home', 'movie'])
-            ->whereNotNull('video_trailer_url')
-            ->where('video_trailer_url', '!=', '')
-            ->get()
-            ->sortBy(fn ($b) => $b->banner_for === 'home' ? 0 : 1)
-            ->first();
+        /*
+         * Detail hero must use ONLY this movie's Entertainment.trailer_url (fresh from DB).
+         * Cached MovieDetailResource + Banner slider clips caused wrong/other promos to appear.
+         * Banner/home trailer is not exposed on this view.
+         */
+        if ($movie) {
+            $rawTrailer = $movie->trailer_url_type == 'Local'
+                ? setBaseUrlWithFileName($movie->trailer_url)
+                : $movie->trailer_url;
+            $data['trailer_url'] = self::trailerUrlWithDetailContext($rawTrailer, (int) $movieId);
+            $data['trailer_url_type'] = $movie->trailer_url_type;
+        }
+        $data['banner_trailer_url'] = null;
 
-        $data['banner_trailer_url'] = $bannerForTrailer && $bannerForTrailer->video_trailer_url
-            ? setBaseUrlWithFileName($bannerForTrailer->video_trailer_url)
-            : null;
+        if ((int) ($data['id'] ?? 0) !== (int) $movieId) {
+            abort(404);
+        }
 
         if ($request->has('is_search') && $request->is_search == 1) {
             $user_id = auth()->user()->id ?? $request->user_id;
@@ -594,5 +595,22 @@ public function leavingSoonList()
     public function destroy($id)
     {
         //
+    }
+
+    /**
+     * Bust browser/CDN caches per title so the same file path cannot replay another movie's buffered stream.
+     * Skips pre-signed URLs where an extra query param would break the signature.
+     */
+    private static function trailerUrlWithDetailContext(?string $url, int $movieId): ?string
+    {
+        if ($url === null || $url === '') {
+            return $url;
+        }
+        if (preg_match('/[?&](X-Amz-Signature|X-Amz-Credential|Signature|AWSAccessKeyId|Expires)=/i', $url)) {
+            return $url;
+        }
+        $sep = strpos($url, '?') !== false ? '&' : '?';
+
+        return $url . $sep . 'detail_movie_id=' . $movieId;
     }
 }

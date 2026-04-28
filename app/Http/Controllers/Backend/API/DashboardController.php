@@ -170,6 +170,26 @@ class DashboardController extends Controller
             $continueWatch = ContinueWatchResource::collection($continueWatchList);
         }
 
+        // Pre-load admin-customised section names once so we can localize every
+        // `name` field in the response based on the `global-localization` header.
+        $sectionSettings = MobileSetting::whereIn('slug', [
+            'top-10',
+            'coming-soon',
+            'leaving-soon',
+            'latest-movies',
+            'popular-movies',
+            'continue-watch',
+        ])->pluck('name', 'slug');
+
+        $sectionNames = [
+            'top-10'         => $this->localizedMobileSectionName($request, 'top-10',         $sectionSettings['top-10']         ?? null, 'Top 10'),
+            'coming-soon'    => $this->localizedMobileSectionName($request, 'coming-soon',    $sectionSettings['coming-soon']    ?? null, 'Coming Soon'),
+            'leaving-soon'   => $this->localizedMobileSectionName($request, 'leaving-soon',   $sectionSettings['leaving-soon']   ?? null, 'Leaving Soon'),
+            'latest-movies'  => $this->localizedMobileSectionName($request, 'latest-movies',  $sectionSettings['latest-movies']  ?? null, 'Latest Movies'),
+            'popular-movies' => $this->localizedMobileSectionName($request, 'popular-movies', $sectionSettings['popular-movies'] ?? null, 'Popular Movies'),
+            'continue-watch' => $this->localizedMobileSectionName($request, 'continue-watch', $sectionSettings['continue-watch'] ?? null, 'Continue Watching'),
+        ];
+
         $isBanner = MobileSetting::getValueBySlug('banner');
         $sliderList = $isBanner
             ? Banner::where('banner_for','home')->where('status', 1)->get()
@@ -213,6 +233,9 @@ class DashboardController extends Controller
             ->limit(12)
             ->get();
 
+       $comingSoonData = \Modules\Entertainment\Transformers\ComingSoonResource::collection($comingSoonMovies)->toArray(request());
+       $leavingSoonData = \Modules\Entertainment\Transformers\ComingSoonResource::collection($leavingSoonMovies)->toArray(request());
+
        $latestMovieIds = MobileSetting::getCacheValueBySlug('latest-movies');
        $latestIds = json_decode($latestMovieIds, true);
        if (!empty($latestIds)) {
@@ -242,62 +265,66 @@ class DashboardController extends Controller
        }
        $popularCollection->each(function ($movie) use ($user_id) { $movie->user_id = $user_id; });
        $popularMovies = \Modules\Entertainment\Transformers\MoviesResource::collection($popularCollection)->toArray(request());
-       
+
        // =======================================================================
         // LATEST MOVIES (IDENTICAL LOGIC TO LatestMovies() API)
         // =======================================================================
-    
+
         $latestSetting = MobileSetting::where('slug', 'latest-movies')->first();
         $latestMovieIds = $latestSetting ? $latestSetting->value : null;
-        $latestSectionName = $this->localizedMobileSectionName(
-            $request,
-            'latest-movies',
-            $latestSetting?->name,
-            'Latest Movies'
-        );
-    
+
         $latest_movie = [];
-    
+
         if (!empty($latestMovieIds)) {
             $latestQuery = Entertainment::whereIn('id', json_decode($latestMovieIds));
-    
+
             // Apply restriction
             if ($request->has('is_restricted')) {
                 $latestQuery = $latestQuery->where('is_restricted', $request->is_restricted);
             }
-    
+
             if (!empty(getCurrentProfileSession('is_child_profile'))
                 && getCurrentProfileSession('is_child_profile') != 0) {
                 $latestQuery = $latestQuery->where('is_restricted', 0);
             }
-    
+
             $latestQuery = $latestQuery->where('status', 1)->get();
-    
+
             // EXACT SAME MOVIESRESOURCE AS LatestMovies()
             $latest_movie = MoviesResource::collection($latestQuery)->toArray(request());
         }
-    
+
         $latest_movies_final = [
-            'name' => $latestSectionName,
-            'data' => $latest_movie
+            'name' => $sectionNames['latest-movies'],
+            'data' => $latest_movie,
         ];
 
        $responseData = [
            'slider' => $sliders,
-           'continue_watch' => $continueWatch,
-           'top_10' => $top_10,
-           'comingSoonMovies' => \Modules\Entertainment\Transformers\ComingSoonResource::collection($comingSoonMovies)->toArray(request()),
-           'leavingSoonMovies' => \Modules\Entertainment\Transformers\ComingSoonResource::collection($leavingSoonMovies)->toArray(request()),
+           'continue_watch' => [
+               'name' => $sectionNames['continue-watch'],
+               'data' => $continueWatch,
+           ],
+           'top_10' => [
+               'name' => $sectionNames['top-10'],
+               'data' => $top_10,
+           ],
+           'coming_soon' => [
+               'name' => $sectionNames['coming-soon'],
+               'data' => $comingSoonData,
+           ],
+           'leaving_soon' => [
+               'name' => $sectionNames['leaving-soon'],
+               'data' => $leavingSoonData,
+           ],
            'latest_movie' => $latest_movies_final,
            'popular_movie' => [
-               'name' => $this->localizedMobileSectionName(
-                   $request,
-                   'popular-movies',
-                   MobileSetting::where('slug', 'popular-movies')->value('name'),
-                   'Popular Movies'
-               ),
+               'name' => $sectionNames['popular-movies'],
                'data' => $popularMovies,
            ],
+           // Legacy keys kept for backward compatibility with older clients.
+           'comingSoonMovies' => $comingSoonData,
+           'leavingSoonMovies' => $leavingSoonData,
            'latestMovies' => $latestMovies,
            'popularMovies' => $popularMovies,
        ];
@@ -1327,18 +1354,36 @@ public function DashboardDetailData(Request $request){
     }
 
     /**
-     * Arabic section titles from lang files so the whole string (including brand wording) is Arabic, not half-translated English.
+     * Resolve the user-facing section title for a mobile/home slug, honouring
+     * the `global-localization` (or legacy `frezka-localization`) header /
+     * `lang` query string.
+     *
+     * - For non-English locales (ar/de/fr/el) we prefer a translation from the
+     *   relevant `frontend.*` lang file so the whole string is localized.
+     * - For English (or if a translation is missing) we fall back to the
+     *   admin-customised name stored on `mobile_settings` and finally to the
+     *   hard-coded English default.
      */
     protected function localizedMobileSectionName(Request $request, string $slug, ?string $dbName, string $fallbackEn): string
     {
         $locale = $this->resolveApiLocale($request);
 
-        if ($locale === 'ar') {
-            return match ($slug) {
-                'latest-movies' => trans('frontend.whats_new_on_cinenow', [], 'ar'),
-                'popular-movies' => trans('frontend.popular_movie', [], 'ar'),
-                default => $dbName ?? $fallbackEn,
-            };
+        $slugToTransKey = [
+            'latest-movies'  => 'frontend.whats_new_on_cinenow',
+            'popular-movies' => 'frontend.popular_movie',
+            'top-10'         => 'frontend.top_10',
+            'coming-soon'    => 'frontend.coming_soon',
+            'leaving-soon'   => 'frontend.leaving_soon',
+            'continue-watch' => 'frontend.continue_watching',
+        ];
+
+        if ($locale !== 'en' && isset($slugToTransKey[$slug])) {
+            $key = $slugToTransKey[$slug];
+            $translated = trans($key, [], $locale);
+
+            if (is_string($translated) && $translated !== '' && $translated !== $key) {
+                return $translated;
+            }
         }
 
         return $dbName ?? $fallbackEn;

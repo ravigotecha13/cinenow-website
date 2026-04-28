@@ -137,7 +137,7 @@ class TvshowDetailResourceV2 extends JsonResource
             'casts' => CastCrewListResource::collection($casts),
             'directors' => CastCrewListResource::collection($directors),
             'tvShowLinks' => $tvShowLinks,
-            // 'more_items' => TvshowResource::collection($more_items),
+            'more_items' => TvshowResource::collection($more_items),
             'status' => $this->status,
             'created_by' => $this->created_by,
             'updated_by' => $this->updated_by,

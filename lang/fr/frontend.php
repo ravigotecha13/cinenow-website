@@ -273,4 +273,13 @@ return [
 'enter_pin' => 'Entrez le code PIN',
 'confirm_pin' => 'Confirmez le code PIN',
 'enter_your_pin' => 'Entrez votre code PIN.',
+
+    'ad_timer_prefix' => 'Pub :',
+    'ad_seconds_unit' => 's',
+    'ads_separator' => 'sur',
+    'skip_ad' => 'Passer la pub',
+
+    'player_quality' => 'Qualité',
+    'player_subtitles' => 'Sous-titres',
+    'player_subtitles_off' => 'Désactivé',
 ];

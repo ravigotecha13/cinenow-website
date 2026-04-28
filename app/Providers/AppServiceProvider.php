@@ -54,7 +54,7 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useBootstrap();
 
         Blade::directive('hasPermission', function ($permissions) {
-            return "<?php if(Auth::user()->can({$permissions})): ?>";
+            return "<?php if(auth()->user()?->can({$permissions}) ?? false): ?>";
         });
 
         Blade::directive('endhasPermission', function () {

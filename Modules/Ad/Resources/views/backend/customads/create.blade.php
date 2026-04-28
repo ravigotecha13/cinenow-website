@@ -24,23 +24,6 @@
                     <div class="invalid-feedback" id="name-error">{{ __('messages.ad_name_required') }}</div>
                 </div>
                 <div class="col-md-6 col-lg-4">
-                    {{ html()->label(__('messages.type') . '<span class="text-danger">*</span>', 'type')->class('form-label') }}
-
-                    {{ html()->select(
-                            'type',
-                            [
-                                'video' => 'Video',
-                                'image' => 'Image',
-                            ],
-                            old('type'),
-                        )->class('form-control select2')->id('type')->placeholder(__('messages.select_type')) }}
-                    @error('type')
-                        <span class="text-danger">{{ $message }}</span>
-                    @enderror
-
-                    <div class="invalid-feedback" id="type-error">{{ __('messages.ad_type_required') }}</div>
-                </div>
-                <div class="col-md-6 col-lg-4">
                     {{ html()->label(__('messages.url_type') . '<span class="text-danger">*</span>', 'url_type')->class('form-label') }}
 
                     {{ html()->select(
@@ -108,30 +91,6 @@
 
                     <div class="invalid-feedback" id="media-url-error">{{ __('messages.invalid_url') }}</div>
                 </div>
-                <div class="col-md-6 col-lg-4">
-                    {{ html()->label(__('messages.placement') . '<span class="text-danger">*</span>', 'placement')->class('form-label') }}
-
-                    {{ html()->select(
-                            'placement',
-                            [
-                                'home_page' => 'Home Page',
-                                'player' => 'Player',
-                                'banner' => 'Banner',
-                                // 'header' => 'Header',
-                                // 'sidebar' => 'Sidebar',
-                                // 'before_login' => 'Before Login',
-                            ],
-                            old('placement'),
-                        )->class('form-control select2')->placeholder(__('messages.select_placement')) }}
-
-                    @error('placement')
-                        <span class="text-danger">{{ $message }}</span>
-                    @enderror
-
-                    <div class="invalid-feedback" id="placement-error">{{ __('messages.placement_required') }}</div>
-                </div>
-
-
                 {{-- Redirect URL --}}
                 <div class="col-md-6 col-lg-4">
                     {{ html()->label(__('messages.redirect_url'), 'redirect_url')->class('form-label') }}
@@ -279,7 +238,7 @@
     <script>
         $(document).ready(function() {
             // Initialize Select2
-            $('#type, #url_type, #target_content_type, #placement').select2({
+            $('#url_type, #target_content_type').select2({
                 width: '100%',
                 placeholder: function() {
                     return $(this).data('placeholder');
@@ -295,13 +254,7 @@
                         minlength: 3,
                         maxlength: 100
                     },
-                    type: {
-                        required: true
-                    },
                     url_type: {
-                        required: true
-                    },
-                    placement: {
                         required: true
                     },
                     target_content_type: {
@@ -328,9 +281,7 @@
                         required: "{{ __('messages.ad_name_required') }}",
                         maxlength: "{{ __('Please enter less than 100 characters') }}"
                     },
-                    type: "{{ __('messages.ad_type_required') }}",
                     url_type: "{{ __('messages.url_type_required') }}",
-                    placement: "{{ __('messages.placement_required') }}",
                     target_content_type: "{{ __('messages.target_content_type_required') }}",
                     target_categories: "{{ __('messages.target_categories_required') }}",
                     start_date: "{{ __('messages.start_date_required') }}",
@@ -427,7 +378,7 @@
             });
 
             // Additional event handlers for Select2
-            $('#type, #url_type, #target_content_type, #placement').on('change', function() {
+            $('#url_type, #target_content_type').on('change', function() {
                 $(this).valid(); // Trigger validation on change
             });
 
@@ -517,40 +468,6 @@
                 $('#target_content_type').val(oldTargetType).trigger('change');
             }
 
-            // Add this block for placement-based show/hide and validation
-            function toggleTargetFields() {
-                var placement = $('#placement').val();
-                if (placement === 'home_page') {
-                    $('.target-fields-wrapper').hide();
-                    // Remove required rules
-                    $('#target_content_type').rules('remove', 'required');
-                    $('#target_categories').rules('remove', 'required');
-                    // Clear validation messages
-                    $('#target_content_type').removeClass('is-invalid').addClass('is-valid');
-                    $('#target_categories').removeClass('is-invalid').addClass('is-valid');
-                    $('.invalid-feedback').hide();
-                } else {
-                    $('.target-fields-wrapper').show();
-                    // Add required rules
-                    $('#target_content_type').rules('add', {
-                        required: true,
-                        messages: {
-                            required: "{{ __('messages.target_content_type_required') }}"
-                        }
-                    });
-                    $('#target_categories').rules('add', {
-                        required: true,
-                        messages: {
-                            required: "{{ __('messages.target_categories_required') }}"
-                        }
-                    });
-                }
-            }
-            toggleTargetFields();
-            $('#placement').on('change', function() {
-                toggleTargetFields();
-            });
-
             // Update status label on switch change
             $(document).on('change', '#status', function() {
                 console.log($(this).is(':checked'));
@@ -598,7 +515,6 @@
             const urlSection = $('#url_input_section');
             const localImageSection = $('#local_image_upload_section');
             const urlTypeSelect = $('select[name="url_type"]');
-            const typeSelect = $('select[name="type"]');
             const mediaUrlInput = $('input[name="media_url"]');
 
             function validateUrl(url) {
@@ -608,26 +524,16 @@
             }
 
             function toggleFields() {
-                const type = typeSelect.val();
                 const urlType = urlTypeSelect.val();
 
-                // Reset all
                 fileSection.addClass('d-none');
                 urlSection.addClass('d-none');
                 localImageSection.addClass('d-none');
 
-                if (type === 'video') {
-                    if (urlType === 'local') {
-                        fileSection.removeClass('d-none');
-                    } else if (urlType === 'url') {
-                        urlSection.removeClass('d-none');
-                    }
-                } else if (type === 'image') {
-                    if (urlType === 'local') {
-                        localImageSection.removeClass('d-none');
-                    } else if (urlType === 'url') {
-                        urlSection.removeClass('d-none');
-                    }
+                if (urlType === 'local') {
+                    fileSection.removeClass('d-none');
+                } else if (urlType === 'url') {
+                    urlSection.removeClass('d-none');
                 }
             }
 
@@ -645,7 +551,6 @@
 
             toggleFields();
             urlTypeSelect.on('change', toggleFields);
-            typeSelect.on('change', toggleFields);
         });
 
         function removeThumbnail(hiddenInputId, removedFlagId) {
@@ -666,14 +571,8 @@
                 $('#target-content-type-error').hide();
             }
         });
-        $('#url_type').on('select2:opening', function(e) {
-            const Type = $('#type').val();
-            if (!Type) {
-                e.preventDefault();
-                $('#type-error').show();
-            } else {
-                $('#type-error').hide();
-            }
+        $('#url_type').on('select2:opening', function() {
+            $('#url-type-error').hide();
         });
         document.addEventListener('DOMContentLoaded', function() {
             flatpickr('.min-datetimepicker-time', {
@@ -698,14 +597,8 @@
             });
         });
 
-        function toggleImageNote() {
-            if ($('#type').val() === 'image' && $('#url_type').val() === 'local') {
-                $('#image-size-note').show();
-            } else {
-                $('#image-size-note').hide();
-            }
-        }
-        $('#type, #url_type').on('change', toggleImageNote);
-        toggleImageNote();
+        $('#url_type').on('change', function() {
+            $('#image-size-note').hide();
+        });
     </script>
 @endpush

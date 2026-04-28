@@ -258,11 +258,13 @@ class WatchlistController extends Controller
         $watch_data['total_watched_time'] = isset($watch_data['total_watched_time']) && substr_count($watch_data['total_watched_time'], ':') == 1 ? $watch_data['total_watched_time'] . ':00' : $watch_data['total_watched_time'];
         $watch_data['user_id'] = $user->id;
 
-        $profile_id=$request->has('profile_id') && $request->profile_id
-        ? $request->profile_id
-        : getCurrentProfile($user->id, $request);
+        $profile_id = resolveContinueWatchProfileId((int) $user->id, $request);
 
-        $watch_data['profile_id'] =  $profile_id;
+        if ($profile_id === null) {
+            return response()->json(['status' => false, 'message' => 'Profile could not be resolved.'], 422);
+        }
+
+        $watch_data['profile_id'] = $profile_id;
 
         $result = ContinueWatch::updateOrCreate(['entertainment_id' => $request->entertainment_id, 'user_id' => $user->id, 'entertainment_type' => $request->entertainment_type,'profile_id'=>$profile_id,'episode_id'=>$request->episode_id], $watch_data);
 

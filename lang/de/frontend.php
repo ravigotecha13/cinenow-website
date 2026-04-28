@@ -274,4 +274,13 @@ return [
 'enter_pin' => 'PIN eingeben',
 'confirm_pin' => 'PIN bestätigen',
 'enter_your_pin' => 'Geben Sie Ihre PIN ein.',
+
+    'ad_timer_prefix' => 'Werbung:',
+    'ad_seconds_unit' => 's',
+    'ads_separator' => 'von',
+    'skip_ad' => 'Werbung überspringen',
+
+    'player_quality' => 'Qualität',
+    'player_subtitles' => 'Untertitel',
+    'player_subtitles_off' => 'Aus',
 ];

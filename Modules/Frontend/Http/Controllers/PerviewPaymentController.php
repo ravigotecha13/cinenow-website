@@ -26,6 +26,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Modules\Entertainment\Models\Watchlist;
 use App\Models\User;
 use App\Services\HyperPayService;
+use Illuminate\Support\Facades\DB;
 
 
 class PerviewPaymentController extends Controller
@@ -186,8 +187,12 @@ class PerviewPaymentController extends Controller
         $currenciesWithoutCents = ['XAF', 'XOF', 'JPY', 'KRW'];
         $priceInCents = in_array(strtoupper($currency), $currenciesWithoutCents) ? $price : (int)round($price * 100);
 
+        // Prefer the authenticated user's email, fall back to any email supplied
+        // with the request (e.g. guest checkout form).
+        $customerEmail = auth()->check() ? auth()->user()->email : $request->input('email');
+
         try {
-            $checkout_session = $stripe->checkout->sessions->create([
+            $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
@@ -206,9 +211,19 @@ class PerviewPaymentController extends Controller
                     'access_duration' => $request->input('access_duration'),
                     'available_for' => $request->input('available_for'),
                     'discount' => $request->input('discount'),
+                    'user_id' => auth()->id(),
+                    'user_email' => $customerEmail,
                 ],
-                'success_url' => $baseURL . '/payment/success/pay-per-view?gateway=stripe&session_id={CHECKOUT_SESSION_ID}'
-            ]);
+                'success_url' => route('payperview.payment.success', ['gateway' => 'stripe']) . '&session_id={CHECKOUT_SESSION_ID}',
+            ];
+
+            // customer_email prefills the email field on Stripe Checkout and is
+            // used for the purchase receipt. Only include a valid address.
+            if (!empty($customerEmail) && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+                $sessionPayload['customer_email'] = $customerEmail;
+            }
+
+            $checkout_session = $stripe->checkout->sessions->create($sessionPayload);
 
             return response()->json(['redirect' => $checkout_session->url]);
         } catch (\Stripe\Exception\InvalidRequestException $e) {
@@ -230,7 +245,7 @@ class PerviewPaymentController extends Controller
             $price = $request->input('price');
             $priceInKobo = $price * 100;
 
-            $callbackUrl = $baseURL . '/payment/success/pay-per-view?' . http_build_query([
+            $callbackUrl = route('payperview.payment.success', [
                 'gateway' => 'paystack',
                 'movie_id' => $request->input('movie_id'),
                 'type' => $request->input('type'),
@@ -333,7 +348,7 @@ class PerviewPaymentController extends Controller
 
             $txRef = 'PPV_' . uniqid() . '_' . time();
 
-            $callbackUrl = $baseURL . '/payment/success/pay-per-view?' . http_build_query([
+            $callbackUrl = route('payperview.payment.success', [
                 'gateway' => 'flutterwave',
                 'movie_id' => $request->input('movie_id'),
                 'type' => $request->input('type'),
@@ -392,7 +407,7 @@ class PerviewPaymentController extends Controller
                     'client_id' => $paypalClientId,
                     'currency' => 'USD',
                     'amount' => $price,
-                    'return_url' => $baseURL . '/payment/success/pay-per-view?' . http_build_query([
+                    'return_url' => route('payperview.payment.success', [
                         'gateway' => 'paypal',
                         'movie_id' => $request->input('movie_id'),
                         'type' => $request->input('type'),
@@ -805,124 +820,179 @@ class PerviewPaymentController extends Controller
 
     public function savePaymentPayperview(Request $request)
     {
-        $userId = $request->user_id ?? auth()->user()->id;
-        $user = User::find($userId);
-        $accessDuration = $request->input('available_for', 48); // default to 48 hours
-        $viewExpiry = now()->addDays((int) $accessDuration);
-
-        if ($request->type == 'movie') {
-            $movie = Entertainment::find($request->movie_id);
-        } else if ($request->type == 'tvshow') {
-            $movie = Entertainment::find($request->movie_id);
-        } else if ($request->type == 'video') {
-            $movie = Video::find($request->movie_id);
-        } else if ($request->type == 'episode') {
-            $movie = Episode::find($request->movie_id);
-        } else if ($request->type == 'season') {
-            $movie = season::find($request->movie_id);
+        // Auth guard: this route sits behind auth:sanctum, but still defend
+        // against bad/guest calls before touching the DB.
+        $userId = $request->user_id ?? optional(auth()->user())->id;
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.',
+            ], 401);
         }
 
-        // Update or create the PayPerView record
-        $payperview = PayPerView::create(
-            [
-                'user_id' => $userId,
-                'movie_id' => $request->movie_id,
-                'type' => $request->type,
-                'content_price' => $movie->price,
-                'price' => $request->price,
-                'discount_percentage' => $request->discount,
-                'view_expiry_date' => $viewExpiry,
-                'access_duration' => $accessDuration,
-                'available_for' => $request->available_for,
-            ]
-        );
+        $user = User::find($userId);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not found.',
+            ], 404);
+        }
+
+        // Support both `movie_id` (legacy) and `entertainment_id` (newer clients).
+        $contentId = $request->movie_id ?? $request->entertainment_id;
+        if (!$contentId || !$request->type) {
+            return response()->json([
+                'success' => false,
+                'message' => 'movie_id/entertainment_id and type are required.',
+            ], 422);
+        }
+
+        $accessDuration = (int) $request->input('available_for', $request->input('access_duration', 48));
+        if ($accessDuration <= 0) $accessDuration = 48;
+        $viewExpiry = now()->addDays($accessDuration);
+
+        $movie = null;
+        switch ($request->type) {
+            case 'movie':
+            case 'tvshow':
+                $movie = Entertainment::find($contentId);
+                break;
+            case 'video':
+                $movie = Video::find($contentId);
+                break;
+            case 'episode':
+                $movie = Episode::find($contentId);
+                break;
+            case 'season':
+                $movie = Season::find($contentId);
+                break;
+        }
+
+        if (!$movie) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Content not found for the given type/id.',
+            ], 404);
+        }
+
+        // Map incoming payment fields to the columns available on pay_per_views.
+        $paymentStatus = $request->payment_status ?? $request->status;
+        $paymentMethod = $request->payment_type ?? $request->payment_method;
+        $price = $request->price ?? $request->amount;
+
+        // Update or create the PayPerView record.
+        //
+        // Note: payment_method / transaction_id / payment_status are intentionally
+        // NOT written here — the `pay_per_views` table schema
+        // (2025_05_06_094938_create_pay_per_views_table) does not contain those
+        // columns. Gateway audit fields live on the sibling
+        // `payperviewstransactions` table (inserted just below).
+        $payperview = PayPerView::create([
+            'user_id'             => $userId,
+            'movie_id'            => $contentId,
+            'type'                => $request->type,
+            'content_price'       => $movie->price ?? $price,
+            'price'               => $price,
+            'discount_percentage' => $request->discount,
+            'view_expiry_date'    => $viewExpiry,
+            'access_duration'     => $accessDuration,
+            'available_for'       => $request->available_for ?? $accessDuration,
+        ]);
 
         // Always create a new transaction
         PayperviewTransaction::create([
-            'user_id' => $userId,
-            'amount' => $request->price,
-            'payment_type' => $request->payment_type,
-            'payment_status' => $request->payment_status,
-            'transaction_id' => $request->transaction_id,
+            'user_id'         => $userId,
+            'amount'          => $price,
+            'payment_type'    => $paymentMethod,
+            'payment_status'  => $paymentStatus,
+            'transaction_id'  => $request->transaction_id,
             'pay_per_view_id' => $payperview->id,
         ]);
         
         // Expire previous active ticket if exists to avoid unique constraint violation
         DB::table('ppv_tickets')
             ->where('user_id', $userId)
-            ->where('entertainment_id', $request->movie_id)
+            ->where('entertainment_id', $contentId)
             ->where('status', 'active')
             ->update(['status' => 'expired', 'updated_at' => now()]);
 
-        DB::table('ppv_tickets')->insert([
+        $ticketId = DB::table('ppv_tickets')->insertGetId([
             'user_id'            => $userId,
-            'entertainment_id'   => $request->movie_id,
+            'entertainment_id'   => $contentId,
             'entertainment_type' => $request->type,
             'status'             => 'active',
             'purchased_at'       => now(),
             'created_at'         => now(),
             'updated_at'         => now(),
         ]);
-        
+
         // Reset Continue Watch history for this movie/content
         \Modules\Entertainment\Models\ContinueWatch::where('user_id', $userId)
-            ->where('entertainment_id', $request->movie_id)
+            ->where('entertainment_id', $contentId)
             ->where('entertainment_type', $request->type)
             ->delete();
 
         if ($request->type == 'movie') {
             DB::table('movie_user_trackings')->updateOrInsert(
                 [
-                    'user_id' => $userId,
-                    'entertainment_id' => $request->movie_id,
+                    'user_id'          => $userId,
+                    'entertainment_id' => $contentId,
                 ],
                 [
-                    'ticket_purchased' => 1,
-                    'watched_percentage' => 0,
-                    'current_status' => 'watch_now',
-                    'last_watched_at' => null,
-                    'updated_at' => now(),
-                    'created_at' => now(),
+                    'ticket_purchased'    => 1,
+                    'watched_percentage'  => 0,
+                    'current_status'      => 'watch_now',
+                    'last_watched_at'     => null,
+                    'updated_at'          => now(),
+                    'created_at'          => now(),
                 ]
             );
         }
-        
-        $ticket = DB::table('ppv_tickets')
-            ->where('user_id', $userId)
-            ->where('entertainment_id', $request->movie_id)
-            ->where('status', 'active')
-            ->latest()
-            ->first();
-        
+
         DB::table('watch_progress')->updateOrInsert(
             [
-                'user_id' => $userId,
-                'entertainment_id' =>  $request->movie_id,
+                'user_id'          => $userId,
+                'entertainment_id' => $contentId,
             ],
             [
-                'ticket_id' => $ticket->id,
+                'ticket_id'          => $ticketId,
                 'entertainment_type' => $request->type,
-                'last_time_seconds' => null,
+                'last_time_seconds'  => null,
                 'watched_percentage' => 0,
-                'completed_at' => null,
-                'updated_at' => now(),
+                'completed_at'       => null,
+                'updated_at'         => now(),
             ]
         );
 
-        sendNotification([
-            'notification_type' => $movie->purchase_type == 'rental' ? 'rent_video' : 'purchase_video',
-            'user_id' => $userId,
-            'user_name' => $user->full_name,
-            'name' => $movie->name ?? 'Video',
-            'content_type' => $request->type,
-            'status' => 'success',
-            'amount' => $request->price,
-            'notification_group' => 'pay_per_view',
-            'start_date' => now()->toDateString(),
-            'end_date' => $viewExpiry->toDateString(),
-        ]);
+        // Notifications must never block the success response: ignore failures.
+        try {
+            sendNotification([
+                'notification_type'   => ($movie->purchase_type ?? '') === 'rental' ? 'rent_video' : 'purchase_video',
+                'user_id'             => $userId,
+                'user_name'           => $user->full_name ?? $user->name ?? '',
+                'name'                => $movie->name ?? 'Video',
+                'content_type'        => $request->type,
+                'status'              => 'success',
+                'amount'              => $price,
+                'notification_group'  => 'pay_per_view',
+                'start_date'          => now()->toDateString(),
+                'end_date'            => $viewExpiry->toDateString(),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('PPV notification failed', ['error' => $e->getMessage()]);
+        }
 
-        return response()->json(['success' => 'Payment successful and movie rented successfully.'], 200);
+        return response()->json([
+            'success' => true,
+            'message' => 'Payment successful and movie rented successfully.',
+            'data'    => [
+                'pay_per_view_id'  => $payperview->id,
+                'ticket_id'        => $ticketId,
+                'transaction_id'   => $request->transaction_id,
+                'view_expiry_date' => $viewExpiry->toDateTimeString(),
+                'access_duration'  => $accessDuration,
+            ],
+        ], 200);
     }
 
     public function unlockVideos()

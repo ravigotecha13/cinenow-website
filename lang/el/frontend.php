@@ -274,4 +274,13 @@ return [
 'enter_pin' => 'Εισάγετε PIN',
 'confirm_pin' => 'Επιβεβαιώστε το PIN',
 'enter_your_pin' => 'Εισαγάγετε το PIN σας.',
+
+    'ad_timer_prefix' => 'Διαφ.:',
+    'ad_seconds_unit' => 's',
+    'ads_separator' => 'από',
+    'skip_ad' => 'Παράλειψη διαφήμισης',
+
+    'player_quality' => 'Ποιότητα',
+    'player_subtitles' => 'Υπότιτλοι',
+    'player_subtitles_off' => 'Ανενεργό',
 ];

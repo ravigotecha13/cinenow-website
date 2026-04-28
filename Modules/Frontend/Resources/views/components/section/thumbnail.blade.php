@@ -2,13 +2,22 @@
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-$userId = auth()->id();
+$userId          = auth()->id();
 $entertainmentId = $data['id'] ?? null;
-$contentType = $content_type ?? $data['type'] ?? 'movie';
+$contentType     = $content_type ?? $data['type'] ?? 'movie';
+$profileId       = ($userId ? resolveContinueWatchProfileId((int) $userId, request()) : null);
 
-/* -------------------------------------------------
-| RELEASE CHECK
-------------------------------------------------- */
+$locale          = app()->getLocale();
+$isRtl           = $locale === 'ar' || (session()->has('dir') && session('dir') === 'rtl');
+
+$displayName = $locale === 'ar'
+    ? ($data['name_ar'] ?? $data['name'] ?? '')
+    : ($data['name'] ?? '');
+$displayDescription = $locale === 'ar'
+    ? ($data['description_ar'] ?? $data['description'] ?? '')
+    : ($data['description'] ?? '');
+
+/* RELEASE CHECK */
 $isReleased = true;
 if (!empty($data['start_date'])) {
     try {
@@ -18,56 +27,53 @@ if (!empty($data['start_date'])) {
     }
 }
 
-/* -------------------------------------------------
-| TRAILER + VIDEO (hero uses banner trailer when set — same file as home/movies banner)
-------------------------------------------------- */
+/* TRAILER + MAIN VIDEO */
+$useEntertainmentTrailerOnly = $use_entertainment_trailer_only ?? false;
 $bannerTrailer = $data['banner_trailer_url'] ?? '';
 $entTrailer    = $data['trailer_url'] ?? '';
-$trailerUrl    = ! empty($bannerTrailer) ? $bannerTrailer : $entTrailer;
-if (! empty($bannerTrailer)) {
-    $trailerType = (str_contains($bannerTrailer, '.m3u8')) ? 'HLS' : 'URL';
-} else {
-    $trailerType = $data['trailer_url_type'] ?? 'URL';
-}
-$video_url   = $data['video_url_input'] ?? '';
 
-/* -------------------------------------------------
-| PPV + PRICE
-------------------------------------------------- */
+if ($useEntertainmentTrailerOnly) {
+    $trailerUrl  = $entTrailer;
+    $trailerType = $data['trailer_url_type'] ?? 'URL';
+} else {
+    $trailerUrl  = !empty($bannerTrailer) ? $bannerTrailer : $entTrailer;
+    $trailerType = !empty($bannerTrailer) ? 'URL' : ($data['trailer_url_type'] ?? 'URL');
+}
+if (!empty($trailerUrl) && str_contains($trailerUrl, '.m3u8')) {
+    $trailerType = 'HLS';
+}
+
+$video_url       = $data['video_url_input'] ?? '';
+$videoUploadType = $data['video_upload_type'] ?? 'URL';
+
+/* PPV + PRICE */
 $isMoviePPV = (($data['movie_access'] ?? $data['access'] ?? '') === 'pay-per-view');
 $finalPrice = isset($data['price'])
     ? $data['price'] - ($data['price'] * ($data['discount'] ?? 0) / 100)
     : 0;
 
-/* -------------------------------------------------
-| QUALITY + SUBTITLES
-------------------------------------------------- */
+/* QUALITY + SUBTITLES */
+$qualityPlaylist = video_quality_playlist_from_links(
+    $data['video_links'] ?? null,
+    $video_url,
+    $videoUploadType
+);
 $qualityOptions = [];
-if (!empty($data['video_links'])) {
-    foreach ($data['video_links'] as $link) {
-        $qualityOptions[$link->quality] = [
-            'value' => $link->type === 'Local'
-                ? setBaseUrlWithFileName($link->url)
-                : $link->url,
-            'type' => $link->type,
-        ];
-    }
+foreach ($qualityPlaylist as $row) {
+    $qualityOptions[$row['label']] = [
+        'value' => $row['url'],
+        'type'  => $row['type'],
+    ];
 }
-
-$subtitleInfo = [];
-if (!empty($data['subtitle_info'])) {
-    $subtitleInfo = $data['subtitle_info']->toArray(request());
-}
-
 $qualityOptionsJson = json_encode($qualityOptions);
-$subtitleInfoJson   = json_encode($subtitleInfo);
 
-/* -------------------------------------------------
-| PPV STATE
-------------------------------------------------- */
+$subtitleInfo = !empty($data['subtitle_info'])
+    ? $data['subtitle_info']->toArray(request())
+    : [];
+
+/* PPV STATE */
 $activeTicket = null;
 $watchedPercent = 0;
-
 if ($userId && $entertainmentId && $isMoviePPV) {
     $activeTicket = DB::table('ppv_tickets')
         ->where('user_id', $userId)
@@ -80,61 +86,66 @@ if ($userId && $entertainmentId && $isMoviePPV) {
         $progress = DB::table('watch_progress')
             ->where('ticket_id', $activeTicket->id)
             ->first();
-
-        $watchedPercent = (int)($progress->watched_percentage ?? 0);
+        $watchedPercent = (int) ($progress->watched_percentage ?? 0);
     }
 }
 
-$canContinue = $activeTicket !== null;
-$showRepay   = $activeTicket && $watchedPercent >= 25 && $watchedPercent < 98;
+$artPlayerUiRtl = $isRtl;
+$ottTimerDir    = $isRtl ? 'rtl' : 'ltr';
+
+/* Mid-roll cue points (seconds). Empty = pre-roll only. */
+$midrollCues = [];
+
+/* Attributes shared by every Watch-Now button variant. */
+$watchBtnData = [
+    'data-entertainment-id'   => $entertainmentId,
+    'data-entertainment-type' => $contentType,
+    'data-category-id'        => $data['category_id'] ?? '',
+    'data-profile-id'         => $profileId,
+    'data-video-url'          => $video_url,
+    'data-quality-options'    => $qualityOptionsJson,
+    'data-quality-playlist'   => json_encode($qualityPlaylist),
+    'data-subtitle-info'      => json_encode($subtitleInfo),
+    'data-midroll-cues'       => json_encode($midrollCues),
+    'data-video-type'         => $videoUploadType,
+];
 @endphp
 
-@php
-    $displayName = app()->getLocale() === 'ar'
-        ? ($data['name_ar'] ?? $data['name'] ?? '')
-        : ($data['name'] ?? '');
-    $displayDescription = app()->getLocale() === 'ar'
-        ? ($data['description_ar'] ?? $data['description'] ?? '')
-        : ($data['description'] ?? '');
-@endphp
-
-@php
-$profileId = getCurrentProfile($userId, request());
-@endphp
+@once
+    @push('after-styles')
+        <link rel="stylesheet" href="{{ mix('css/hero-thumbnail.css') }}">
+    @endpush
+    @push('after-scripts')
+        {{-- Pinned builds; order: Hls → Artplayer (customType) → OTT pre-roll; defer runs before DOMContentLoaded --}}
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js" defer crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/artplayer@5.4.0/dist/artplayer.js" defer crossorigin="anonymous"></script>
+        <script src="{{ mix('js/ott-preroll-ads.js') }}" defer></script>
+        <script src="{{ mix('js/ott-player-ads.js') }}" defer></script>
+        <script src="{{ mix('js/ott-midroll-ads.js') }}" defer></script>
+    @endpush
+@endonce
 
 <div id="video-section" class="video-player-wrapper position-relative">
 
-    <div id="videoContainer" class="position-relative w-100">
+    <div id="videoContainer" class="position-relative w-100" data-art-rtl="{{ $artPlayerUiRtl ? '1' : '0' }}">
 
-        {{-- 📺 CUSTOM AD OVERLAY --}}
-        <div id="customAdModal" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; background:black; z-index:20; align-items:center; justify-content:center;">
-            <div id="customAdContent" style="width:100%; height:100%; position:relative; display:flex; align-items:center; justify-content:center;">
-                {{-- Ad content injected here --}}
-            </div>
-            <button id="customAdCloseBtn" style="position:absolute; top:20px; right:20px; z-index:21; background:rgba(0,0,0,0.5); color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; display:none;">
-                Skip Ad
-            </button>
-            <div id="adTimer" style="position:absolute; bottom:20px; right:20px; z-index:21; color:white; font-size:14px; background:rgba(0,0,0,0.5); padding:4px 8px; border-radius:4px; display:none;">
-                Ad: <span id="adTimeRemaining"></span>
-            </div>
-        </div>
-
-        {{-- 🎞️ TRAILER --}}
-        <video id="trailerPlayer"
-               class="w-100"
+        {{-- 🎞️ TRAILER (src finalized in JS — HLS needs hls.js; avoids wrong cached stream) --}}
+        <video id="heroTrailerVideo_{{ $entertainmentId }}"
+               class="w-100 hero-trailer-video"
+               data-entertainment-id="{{ $entertainmentId }}"
                preload="metadata"
                muted
                loop
                playsinline
                poster="{{ $data['thumbnail_image'] ?? '' }}">
-            @if ($trailerUrl)
+            @if ($trailerUrl && ($trailerType ?? '') !== 'HLS')
                 <source src="{{ $trailerUrl }}"
-                        type="{{ $trailerType === 'HLS' ? 'application/x-mpegURL' : 'video/mp4' }}">
+                        type="video/mp4">
             @endif
         </video>
 
         {{-- 🔊 MUTE --}}
-        <button id="muteToggleBtn" class="mute-btn">
+        <button id="heroTrailerMute_{{ $entertainmentId }}" type="button" class="mute-btn">
             <i class="fa-solid fa-volume-mute"></i>
         </button>
 
@@ -163,48 +174,38 @@ $profileId = getCurrentProfile($userId, request());
                             <a href="{{ route('pay-per-view.paymentform', ['id'=>$entertainmentId,'type'=>$contentType]) }}"
                                class="btn btn-primary">
                                 <i class="fa-solid fa-ticket me-2"></i>
-                                {{ __('frontend.get_ticket') }}
-                                <span class="ms-2">{{ Currency::format($finalPrice,2) }}</span>
+                                <span class="d-inline-flex align-items-center gap-2 flex-wrap">
+                                    <span dir="auto">{{ __('frontend.get_ticket') }}</span>
+                                    <bdi dir="ltr" class="text-nowrap">{{ Currency::format($finalPrice, 2) }}</bdi>
+                                </span>
                             </a>
                 
                         {{-- PURCHASED --}}
                         @else
                             <button id="watchNowBtn"
                                 class="btn btn-primary btn-watch-now me-2"
-                                data-entertainment-id="{{ $entertainmentId }}"
-                                data-entertainment-type="{{ $contentType }}"
-                                data-profile-id="{{ $profileId }}"
                                 data-is-ppv="true"
-                                data-payment-url="{{ route('pay-per-view.paymentform',['id'=>$entertainmentId,'type'=>$contentType]) }}"
-                                data-video-url="{{ $video_url }}"
-                                data-quality-options='{{ $qualityOptionsJson }}'
-                                data-subtitle-info='{{ $subtitleInfoJson }}'>
+                                data-payment-url="{{ route('pay-per-view.paymentform', ['id' => $entertainmentId, 'type' => $contentType]) }}"
+                                @foreach($watchBtnData as $attr => $val) {{ $attr }}='{{ $val }}' @endforeach>
                                 {{ $watchedPercent > 0 ? __('frontend.continue_watching') : __('frontend.watch_now') }}
                             </button>
 
                             @if ($watchedPercent >= 25)
-                                <a href="{{ route('pay-per-view.paymentform', ['id'=>$entertainmentId,'type'=>$contentType]) }}"
+                                <a href="{{ route('pay-per-view.paymentform', ['id' => $entertainmentId, 'type' => $contentType]) }}"
                                    class="btn btn-primary">
                                     <i class="fa-solid fa-ticket me-2"></i> {{ __('frontend.get_ticket_again') }}
                                 </a>
                             @endif
-
                         @endif
-                
+
                     {{-- FREE MOVIE --}}
                     @else
-                       <button id="watchNowBtn"
-        class="btn btn-primary btn-watch-now"
-        data-entertainment-id="{{ $entertainmentId }}"
-        data-entertainment-type="{{ $contentType }}"
-        data-profile-id="{{ $profileId }}"
-        data-is-ppv="false"
-        data-video-url="{{ $video_url }}"
-        data-quality-options='{{ $qualityOptionsJson }}'
-        data-subtitle-info='{{ $subtitleInfoJson }}'>
-    {{ __('frontend.watch_now') }}
-</button>
-
+                        <button id="watchNowBtn"
+                            class="btn btn-primary btn-watch-now"
+                            data-is-ppv="false"
+                            @foreach($watchBtnData as $attr => $val) {{ $attr }}='{{ $val }}' @endforeach>
+                            {{ __('frontend.watch_now') }}
+                        </button>
                     @endif
                 
                 </div>
@@ -213,264 +214,147 @@ $profileId = getCurrentProfile($userId, request());
             </div>
         </div>
 
-    </div>
+        {{-- Main feature player mounts here so #customAdModal is not destroyed by innerHTML --}}
+        <div id="mainArtplayerSlot"
+             class="position-absolute top-0 start-0 w-100 h-100"
+             style="display:none; z-index: 12;"
+             aria-hidden="true"></div>
 
-  
+        {{-- 📺 Interstitial ad shell AFTER player slot so mid-rolls paint above Artplayer (z-index + DOM order). --}}
+        <div id="customAdModal"
+             class="ott-preroll-modal"
+             style="display:none; position:absolute; inset:0; width:100%; height:100%; background:#000; z-index:100;"
+             aria-hidden="true">
+            <div id="ottPrerollLoader" class="ott-preroll-loader" style="display:none;" aria-busy="true">
+                <span class="ott-preroll-spinner" aria-hidden="true"></span>
+                <span class="ott-preroll-loader-text">Loading…</span>
+            </div>
+            <div id="ottPrerollAdLabel" class="ott-preroll-ad-label" style="display:none;" dir="auto" aria-live="polite"></div>
+            <div id="customAdContent" class="ott-preroll-content">
+                {{-- Ad creatives injected by OTTPreRoll — full-bleed like hero trailer (object-fit: cover) --}}
+            </div>
+            <button type="button" id="customAdCloseBtn" class="ott-preroll-skip-btn" style="display:none;">
+                <span class="ott-preroll-skip-btn-text" dir="{{ $ottTimerDir }}">{{ __('frontend.skip_ad') }}</span>
+            </button>
+            <div id="adTimer" class="ott-preroll-timer" style="display:none;">
+                <span class="ott-preroll-timer-inner" dir="{{ $ottTimerDir }}">
+                    <span class="ott-preroll-timer-prefix">{{ __('frontend.ad_timer_prefix') }}</span>
+                    <span class="ott-preroll-timer-digits" dir="ltr"><span id="adTimeRemaining"></span></span>
+                    <span class="ott-preroll-timer-unit">{{ __('frontend.ad_seconds_unit') }}</span>
+                </span>
+            </div>
+        </div>
+
+    </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
+@push('after-scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    function resolveCustomAdMediaUrl(media, baseUrl) {
-        const m = (media == null) ? '' : String(media).trim();
-        if (!m) return '';
-        if (/^https?:\/\//i.test(m) || m.startsWith('data:') || m.startsWith('blob:')) return m;
-        if (m.startsWith('//')) return (window.location && window.location.protocol ? window.location.protocol : 'https:') + m;
-        const b = (baseUrl || '').replace(/\/$/, '');
-        return m.startsWith('/') ? b + m : b + '/' + m.replace(/^\/+/, '');
-    }
-
-    const trailer   = document.getElementById('trailerPlayer');
-    const muteBtn   = document.getElementById('muteToggleBtn');
-    const overlay   = document.querySelector('.movie-overlay');
+    const trailer   = document.getElementById('heroTrailerVideo_{{ $entertainmentId }}');
+    const muteBtn   = document.getElementById('heroTrailerMute_{{ $entertainmentId }}');
     const container = document.getElementById('videoContainer');
+    const overlay   = container ? container.querySelector('.movie-overlay') : null;
 
-    const heroContentId = @json($data['id'] ?? null);
-    const heroContentType = @json($content_type ?? ($data['type'] ?? 'movie'));
-
-    function parseTargetIds(raw) {
-        if (Array.isArray(raw)) return raw.map(function (v) { return Number(v); }).filter(Number.isFinite);
-        if (typeof raw === 'string') {
-            try {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) {
-                    return parsed.map(function (v) { return Number(v); }).filter(Number.isFinite);
-                }
-            } catch (e) {
-                return [];
-            }
-        }
-        return [];
-    }
-
-    function pickPrerollAd(rows, placementPrefs, contentId) {
-        const prefs = placementPrefs.map(function (p) { return (p || '').toString().toLowerCase(); });
-        const cid = Number(contentId);
-
-        const list = rows.filter(function (item) {
-            if (!item || item.status != 1) return false;
-            if (!item.media) return false;
-            const pl = (item.placement || '').toString().toLowerCase();
-            return prefs.indexOf(pl) !== -1;
-        });
-
-        if (!list.length) return null;
-
-        list.sort(function (a, b) {
-            const pA = prefs.indexOf((a.placement || '').toString().toLowerCase());
-            const pB = prefs.indexOf((b.placement || '').toString().toLowerCase());
-            if (pA !== pB) return pA - pB;
-
-            const idsA = parseTargetIds(a.target_categories);
-            const idsB = parseTargetIds(b.target_categories);
-            const exactA = Number.isFinite(cid) ? idsA.indexOf(cid) !== -1 : false;
-            const exactB = Number.isFinite(cid) ? idsB.indexOf(cid) !== -1 : false;
-            if (exactA !== exactB) return exactB - exactA;
-
-            return Number(b.id || 0) - Number(a.id || 0);
-        });
-
-        return list[0] || null;
-    }
-
-    function playCustomAdForContent(contentId, contentType, placementPrefs) {
-        return new Promise(function (resolve) {
-            if (!contentId || !contentType) {
-                resolve();
-                return;
-            }
-            (async function () {
-                try {
-                    const baseUrl = window.location.origin || document.querySelector('meta[name="baseUrl"]')?.getAttribute('content') || '';
-                    const url = `${baseUrl}/api/custom-ads/get-active?content_id=${encodeURIComponent(contentId)}&type=${encodeURIComponent(contentType)}`;
-                    const res = await fetch(url, {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                        },
-                        credentials: 'include'
-                    });
-                    const json = await res.json();
-                    const rows = Array.isArray(json.data) ? json.data : (json.data && Array.isArray(json.data.data) ? json.data.data : []);
-                    if (!json.success || !Array.isArray(rows) || rows.length === 0) {
-                        resolve();
-                        return;
-                    }
-                    const ad = pickPrerollAd(rows, placementPrefs, contentId);
-                    if (!ad) {
-                        resolve();
-                        return;
-                    }
-                    const modal = document.getElementById('customAdModal');
-                    const content = document.getElementById('customAdContent');
-                    const closeBtn = document.getElementById('customAdCloseBtn');
-                    const timerDiv = document.getElementById('adTimer');
-                    const timeSpan = document.getElementById('adTimeRemaining');
-                    if (!modal || !content) {
-                        resolve();
-                        return;
-                    }
-                    modal.style.display = 'flex';
-                    content.innerHTML = '';
-                    closeBtn.style.display = 'none';
-                    timerDiv.style.display = 'none';
-
-                    let adFinished = false;
-                    let skipTimer = null;
-                    const safetyTimer = setTimeout(function () { finishAd(); }, 4 * 60 * 1000);
-
-                    function finishAd() {
-                        if (adFinished) return;
-                        adFinished = true;
-                        clearTimeout(safetyTimer);
-                        if (skipTimer) clearTimeout(skipTimer);
-                        modal.style.display = 'none';
-                        content.innerHTML = '';
-                        resolve();
-                    }
-
-                    closeBtn.onclick = finishAd;
-
-                    if (ad.skip_after > 0) {
-                        skipTimer = setTimeout(function () {
-                            if (!adFinished) closeBtn.style.display = 'block';
-                        }, ad.skip_after * 1000);
-                    } else if (ad.skip_after === 0) {
-                        closeBtn.style.display = 'block';
-                    }
-
-                    const adType = (ad.type || '').toString().toLowerCase();
-                    if (adType === 'image') {
-                        const duration = ad.duration || 10;
-                        const imgSrc = resolveCustomAdMediaUrl(ad.media, baseUrl);
-                        let imgHtml = `<img src="${imgSrc}" style="max-width:100%; max-height:100%; object-fit:contain;">`;
-                        if (ad.redirect_url) {
-                            imgHtml = `<a href="${ad.redirect_url}" target="_blank">${imgHtml}</a>`;
-                        }
-                        content.innerHTML = imgHtml;
-                        let timeLeft = duration;
-                        timerDiv.style.display = 'block';
-                        timeSpan.innerText = timeLeft + 's';
-                        const tick = setInterval(function () {
-                            if (adFinished) {
-                                clearInterval(tick);
-                                return;
-                            }
-                            timeLeft--;
-                            timeSpan.innerText = timeLeft + 's';
-                            if (timeLeft <= 0) {
-                                clearInterval(tick);
-                                finishAd();
-                            }
-                        }, 1000);
-                    } else if (adType === 'video') {
-                        const isYouTube = /youtu\.?be/.test(ad.media);
-                        if (isYouTube) {
-                            let videoId = '';
-                            const ytMatch = ad.media.match(/(?:youtu\.be\/|youtube\.com.*(?:v=|\/embed\/|\/v\/|\/shorts\/))([a-zA-Z0-9_-]{11})/);
-                            if (ytMatch && ytMatch[1]) videoId = ytMatch[1];
-                            if (videoId) {
-                                content.innerHTML = `<iframe id="adYtFrame" width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&controls=0&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-                                const yDur = ad.duration || 30;
-                                let timeLeft = yDur;
-                                timerDiv.style.display = 'block';
-                                timeSpan.innerText = timeLeft + 's';
-                                const tick = setInterval(function () {
-                                    if (adFinished) {
-                                        clearInterval(tick);
-                                        return;
-                                    }
-                                    timeLeft--;
-                                    timeSpan.innerText = timeLeft + 's';
-                                    if (timeLeft <= 0) {
-                                        clearInterval(tick);
-                                        finishAd();
-                                    }
-                                }, 1000);
-                            } else {
-                                finishAd();
-                            }
-                        } else {
-                            const videoUrl = resolveCustomAdMediaUrl(ad.media, baseUrl);
-                            const isHls = videoUrl.includes('.m3u8');
-                            const videoEl = document.createElement('video');
-                            videoEl.style.width = '100%';
-                            videoEl.style.height = '100%';
-                            videoEl.autoplay = true;
-                            videoEl.muted = true;
-                            videoEl.controls = false;
-                            videoEl.playsInline = true;
-                            if (ad.redirect_url) {
-                                videoEl.style.cursor = 'pointer';
-                                videoEl.onclick = function () { window.open(ad.redirect_url, '_blank'); };
-                            }
-                            content.appendChild(videoEl);
-                            if (isHls && window.Hls && window.Hls.isSupported()) {
-                                const hls = new Hls();
-                                hls.loadSource(videoUrl);
-                                hls.attachMedia(videoEl);
-                            } else {
-                                videoEl.src = videoUrl;
-                            }
-                            videoEl.play().catch(function () { finishAd(); });
-                            videoEl.onended = finishAd;
-                            videoEl.onerror = function () { finishAd(); };
-                            videoEl.ontimeupdate = function () {
-                                if (videoEl.duration) {
-                                    timerDiv.style.display = 'block';
-                                    const remaining = Math.ceil(videoEl.duration - videoEl.currentTime);
-                                    timeSpan.innerText = remaining + 's';
-                                }
-                            };
-                        }
-                    } else {
-                        finishAd();
-                    }
-                } catch (e) {
-                    console.error('Error fetching ads:', e);
-                    resolve();
-                }
-            })();
-        });
-    }
+    const heroTrailerUrl = @json($trailerUrl ?? '');
+    const heroTrailerIsHls = @json(!empty($trailerUrl) && (($trailerType ?? '') === 'HLS'));
+    let heroTrailerHls = null;
 
     (async function runHeroTrailerWithOptionalAd() {
         if (!trailer) return;
-        const src = trailer.querySelector('source')?.getAttribute('src') || trailer.currentSrc;
-        if (!src) return;
+        const url = heroTrailerUrl;
+        if (!url) return;
+
         trailer.pause();
-        trailer.currentTime = 0;
-        if (heroContentId && heroContentType) {
-            await playCustomAdForContent(heroContentId, heroContentType, ['banner', 'player', 'home_page']);
+        try {
+            trailer.querySelectorAll('source').forEach(function (el) {
+                el.remove();
+            });
+        } catch (e) {}
+
+        if (heroTrailerHls) {
+            try {
+                heroTrailerHls.destroy();
+            } catch (e) {}
+            heroTrailerHls = null;
         }
+
+        if (heroTrailerIsHls && window.Hls && window.Hls.isSupported()) {
+            heroTrailerHls = new window.Hls({ enableWorker: true });
+            heroTrailerHls.loadSource(url);
+            heroTrailerHls.attachMedia(trailer);
+            heroTrailerHls.on(window.Hls.Events.ERROR, function () {
+                try {
+                    if (heroTrailerHls) heroTrailerHls.destroy();
+                } catch (err) {}
+                heroTrailerHls = null;
+            });
+        } else if (heroTrailerIsHls && trailer.canPlayType && trailer.canPlayType('application/vnd.apple.mpegurl')) {
+            trailer.src = url;
+            trailer.load();
+        } else if (!heroTrailerIsHls) {
+            trailer.src = url;
+            trailer.load();
+        } else {
+            return;
+        }
+
+        try {
+            trailer.currentTime = 0;
+        } catch (e) {}
         if (overlay) overlay.style.display = '';
         trailer.muted = true;
         trailer.play().catch(function () {});
     })();
 
+    function updateHeroMuteIcon(isMuted) {
+        if (!muteBtn) return;
+        const icon = muteBtn.querySelector('i');
+        if (icon) {
+            icon.className = isMuted ? 'fa-solid fa-volume-mute' : 'fa-solid fa-volume-high';
+        }
+    }
+
     if (muteBtn && trailer) {
         muteBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            trailer.muted = !trailer.muted;
-            const icon = muteBtn.querySelector('i');
-            if (icon) {
-                icon.className = trailer.muted ? 'fa-solid fa-volume-mute' : 'fa-solid fa-volume-high';
+
+            const modal = document.getElementById('customAdModal');
+            const prerollUi =
+                modal &&
+                (modal.classList.contains('ott-preroll-active') ||
+                    modal.classList.contains('ott-preroll-loading'));
+
+            if (prerollUi) {
+                const adVideo = document.querySelector('#customAdContent video');
+                if (adVideo) {
+                    adVideo.muted = !adVideo.muted;
+                    updateHeroMuteIcon(!!adVideo.muted);
+                    return;
+                }
+                const ytIframe = document.querySelector(
+                    '#customAdContent iframe[src*="youtube.com/embed"]'
+                );
+                if (ytIframe && ytIframe.contentWindow) {
+                    const icon = muteBtn.querySelector('i');
+                    const currentlyMuted = icon && icon.classList.contains('fa-solid fa-volume-mute');
+                    const func = currentlyMuted ? 'unMute' : 'mute';
+                    try {
+                        ytIframe.contentWindow.postMessage(
+                            JSON.stringify({ event: 'command', func: func, args: '' }),
+                            'https://www.youtube.com'
+                        );
+                    } catch (err) {}
+                    updateHeroMuteIcon(func === 'mute');
+                    return;
+                }
+                return;
             }
+
+            trailer.muted = !trailer.muted;
+            updateHeroMuteIcon(!!trailer.muted);
         });
     }
 
@@ -483,10 +367,66 @@ document.addEventListener('DOMContentLoaded', function () {
         const entertainmentId   = this.dataset.entertainmentId;
         const entertainmentType = this.dataset.entertainmentType;
         const profileId         = this.dataset.profileId;
+        const categoryId        = this.dataset.categoryId || '';
+        let midrollCues = [];
+        try {
+            midrollCues = JSON.parse(this.dataset.midrollCues || '[]');
+        } catch (eMid) {
+            midrollCues = [];
+        }
+        if (!Array.isArray(midrollCues)) {
+            midrollCues = [];
+        }
         const isPPV             = this.dataset.isPpv === 'true';
         const paymentUrl        = this.dataset.paymentUrl || '';
-        const qualities         = JSON.parse(this.dataset.qualityOptions || '{}');
-        const videoUrl          = Object.values(qualities)[0]?.value || this.dataset.videoUrl;
+        const contentVideoType  = (this.dataset.videoType || 'URL').toLowerCase();
+
+        function detectUrlKind(u) {
+            var url = String(u || '').trim();
+            if (!url) return 'native';
+            if (/youtube\.com|youtu\.be/i.test(url)) return 'youtube';
+            if (/vimeo\.com/i.test(url)) return 'vimeo';
+            if (/^<iframe\s|\bembed\b/i.test(url) && /src=/.test(url)) return 'embedded';
+            return 'native';
+        }
+
+        const qualities = JSON.parse(this.dataset.qualityOptions || '{}');
+        let qualityPlaylist = [];
+        try {
+            qualityPlaylist = JSON.parse(this.dataset.qualityPlaylist || '[]');
+        } catch (err) {
+            qualityPlaylist = [];
+        }
+        if (!qualityPlaylist.length && qualities && typeof qualities === 'object') {
+            Object.keys(qualities).forEach(function (label) {
+                var q = qualities[label];
+                if (q && q.value) {
+                    qualityPlaylist.push({ label: label, url: q.value, type: q.type || 'URL' });
+                }
+            });
+        }
+        qualityPlaylist.forEach(function (q) {
+            q._kind = detectUrlKind(q.url);
+        });
+
+        // Prefer native (HLS/MP4/local) over iframe for the initial playback, but keep
+        // all qualities visible in the selector so the user can still pick any of them.
+        var nativeEntries = qualityPlaylist.filter(function (q) { return q._kind === 'native'; });
+        var preferredEntry = nativeEntries[0] || qualityPlaylist[0] || null;
+
+        const videoUrl = (preferredEntry && preferredEntry.url) ||
+                         Object.values(qualities)[0]?.value ||
+                         this.dataset.videoUrl;
+
+        const videoType = preferredEntry ? preferredEntry._kind : contentVideoType;
+        const isIframeVideoType = (videoType === 'youtube' || videoType === 'vimeo' || videoType === 'embedded');
+
+        let subtitleTracks = [];
+        try {
+            subtitleTracks = JSON.parse(this.dataset.subtitleInfo || '[]');
+        } catch (err2) {
+            subtitleTracks = [];
+        }
 
         let resumeTime = 0;
 
@@ -524,8 +464,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
+                    credentials: 'same-origin',
                     body: JSON.stringify({
                         entertainment_id: entertainmentId,
                         entertainment_type: entertainmentType,
@@ -539,69 +481,620 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         /* -------------------------------------------------
-        | 📺 PRE-ROLL before main player (placement: player)
+        | 📺 Stop hero trailer — Artplayer is about to take over the wrapper.
         ------------------------------------------------- */
-        await playCustomAdForContent(entertainmentId, entertainmentType, ['player']);
+        if (heroTrailerHls) {
+            try {
+                heroTrailerHls.destroy();
+            } catch (e) {}
+            heroTrailerHls = null;
+        }
+        if (trailer) {
+            try {
+                trailer.pause();
+                trailer.muted = true;
+            } catch (e) {}
+            if (muteBtn) {
+                const icon = muteBtn.querySelector('i');
+                if (icon) icon.className = 'fa-solid fa-volume-mute';
+            }
+        }
+
+        const apiBaseUrl = (
+            (document.querySelector('meta[name="baseUrl"]')?.getAttribute('content') || '')
+                .replace(/\/$/, '') || window.location.origin
+        );
+
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
 
         /* -------------------------------------------------
-        | 🎬 LOAD PLAYER
+        | 📺 PRE-ROLL queue — played INSIDE Artplayer via OTTPlayerAds.
+        | (Fetch first, then boot Artplayer with first ad URL so there is ONE player, one DOM.)
         ------------------------------------------------- */
-        overlay.style.display = 'none';
-        container.innerHTML = `<div id="artplayer" style="width:100%;height:100%"></div>`;
+        let prerollQueue = [];
+        if (typeof window.OTTPreRoll !== 'undefined' && typeof window.OTTPlayerAds !== 'undefined') {
+            try {
+                const adRows = await window.OTTPreRoll.fetchAds({
+                    contentId: entertainmentId,
+                    contentType: entertainmentType,
+                    categoryId: categoryId,
+                    baseUrl: apiBaseUrl,
+                    csrfToken: '{{ csrf_token() }}',
+                    timeoutMs: 12000,
+                });
+                const selected = window.OTTPreRoll.selectAdsForPreRoll(
+                    adRows,
+                    ['player', 'movie_detail', 'movie_detail_page'],
+                    entertainmentId,
+                    categoryId,
+                    8
+                );
+                prerollQueue = window.OTTPlayerAds.filterPlayableVideoAds(selected);
+            } catch (eAds) {
+                console.error('Pre-roll fetch failed', eAds);
+                prerollQueue = [];
+            }
+        }
 
-        const art = new Artplayer({
+        /* -------------------------------------------------
+        | 🎬 LOAD PLAYER (mount in slot — single Artplayer instance for ads + movie)
+        ------------------------------------------------- */
+        if (trailer) {
+            trailer.style.display = 'none';
+        }
+        if (muteBtn) {
+            muteBtn.style.display = 'none';
+        }
+
+        const playerSlot = document.getElementById('mainArtplayerSlot');
+        if (!playerSlot) {
+            console.error('mainArtplayerSlot missing');
+            return;
+        }
+        playerSlot.style.display = 'block';
+        playerSlot.setAttribute('aria-hidden', 'false');
+
+        function buildIframeSrc(kind, rawUrl, resumeSec) {
+            var raw = String(rawUrl || '').trim();
+            if (kind === 'youtube') {
+                var m = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+                var id = m ? m[1] : raw;
+                var p  = 'autoplay=1&rel=0&modestbranding=1&playsinline=1';
+                if (resumeSec > 0) p += '&start=' + Math.floor(resumeSec);
+                return 'https://www.youtube.com/embed/' + id + '?' + p;
+            }
+            if (kind === 'vimeo') {
+                var v   = raw.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+                var vid = v ? v[1] : raw;
+                return 'https://player.vimeo.com/video/' + vid + '?autoplay=1&playsinline=1' +
+                       (resumeSec > 0 ? '#t=' + Math.floor(resumeSec) + 's' : '');
+            }
+            var emb = raw.match(/src=["']([^"']+)["']/i);
+            return emb ? emb[1] : raw;
+        }
+
+        function mountIframeInSlot(src) {
+            const slot = document.getElementById('mainArtplayerSlot');
+            if (!slot) return;
+            slot.style.display = 'block';
+            slot.setAttribute('aria-hidden', 'false');
+            slot.innerHTML =
+                '<iframe src="' + src + '" ' +
+                'style="position:absolute;inset:0;width:100%;height:100%;border:0;" ' +
+                'allow="autoplay; fullscreen; picture-in-picture; encrypted-media" ' +
+                'allowfullscreen loading="eager"></iframe>';
+        }
+
+        /* YouTube / Vimeo / Embedded without pre-roll: skip Artplayer entirely and mount iframe. */
+        if (isIframeVideoType && prerollQueue.length === 0) {
+            mountIframeInSlot(buildIframeSrc(videoType, videoUrl, resumeTime));
+            return;
+        }
+
+        playerSlot.innerHTML = `<div id="artplayer" style="width:100%;height:100%"></div>`;
+
+        const subtitleStyle = {
+            color: '#ffffff',
+            'font-size': 'max(14px, 1.05em)',
+            'font-weight': '500',
+            'line-height': 1.45,
+            background: 'transparent',
+            padding: '4px 12px',
+            'text-shadow': '0 2px 4px rgba(0,0,0,0.95), 0 0 6px rgba(0,0,0,0.75)',
+        };
+
+        function inferSubtitleFormat(url) {
+            if (!url) return 'srt';
+            var path = String(url).split('?')[0];
+            var ext = path.split('.').pop().toLowerCase();
+            if (ext === 'vtt') return 'vtt';
+            if (ext === 'ass' || ext === 'ssa') return 'ass';
+            return 'srt';
+        }
+
+        function isSubtitleDefaultFlag(v) {
+            return v === true || v === 1 || v === '1';
+        }
+
+        let artRef = null;
+        let midRollMgr = null;
+        /*
+         * Build the quality selector list for Artplayer.
+         *
+         * IMPORTANT: exactly ONE entry must be marked as `default: true`.
+         * Previously we did `default: q.url === videoUrl`, which marked every
+         * entry with the same URL as the active one — a very common case when
+         * multiple quality labels point at the same HLS master playlist or the
+         * same MP4. That produced a checkmark next to every quality option.
+         *
+         * We resolve the default like this:
+         *   1. First entry whose URL matches the currently-playing URL.
+         *   2. Otherwise, the first entry in the playlist.
+         */
+        const qualityForArt = (function () {
+            if (!qualityPlaylist.length) return [];
+
+            var defaultIdx = qualityPlaylist.findIndex(function (q) {
+                return q && q.url === videoUrl;
+            });
+            if (defaultIdx < 0) defaultIdx = 0;
+
+            return qualityPlaylist.map(function (q, idx) {
+                return {
+                    html: q.label,
+                    url: q.url,
+                    default: idx === defaultIdx,
+                    _kind: q._kind || 'native',
+                };
+            });
+        })();
+
+        const hasDefaultSubtitle = subtitleTracks.some(function (t) {
+            return isSubtitleDefaultFlag(t.is_default);
+        });
+        const subtitleSettings = [];
+        var subSelector = [];
+        const playerUiStrings = {
+            quality: @json(__('frontend.player_quality')),
+            subtitles: @json(__('frontend.player_subtitles')),
+            subtitlesOff: @json(__('frontend.player_subtitles_off')),
+        };
+
+        if (subtitleTracks.length > 0) {
+            subSelector = [{ html: playerUiStrings.subtitlesOff, url: '', format: 'srt', default: false }];
+            var autoDefaultIdx = -1;
+            subtitleTracks.forEach(function (t) {
+                if (!t.subtitle_file) return;
+                subSelector.push({
+                    html: t.language || t.language_code || 'Subtitle',
+                    url: t.subtitle_file,
+                    format: t.format || inferSubtitleFormat(t.subtitle_file),
+                    default: isSubtitleDefaultFlag(t.is_default),
+                });
+                if (autoDefaultIdx < 0) autoDefaultIdx = subSelector.length - 1;
+            });
+            if (!hasDefaultSubtitle && autoDefaultIdx > 0) {
+                subSelector[autoDefaultIdx].default = true;
+            }
+        }
+        function applySubtitle(a, url, format) {
+            if (!a || !a.subtitle) return Promise.resolve(false);
+            if (!url) {
+                try { a.subtitle.show = false; } catch (e) {}
+                return Promise.resolve(true);
+            }
+            var fmt = format || inferSubtitleFormat(url);
+            var p;
+            try {
+                if (typeof a.subtitle.switch === 'function') {
+                    p = a.subtitle.switch(url, {
+                        type: fmt,
+                        style: subtitleStyle,
+                        encoding: 'utf-8',
+                    });
+                } else {
+                    a.subtitle.url = url;
+                    p = Promise.resolve();
+                }
+            } catch (err) {
+                console.warn('[Artplayer] subtitle.switch threw', err);
+                return Promise.resolve(false);
+            }
+            if (!p || typeof p.then !== 'function') p = Promise.resolve();
+            return p.then(function () {
+                try { a.subtitle.show = true; } catch (e) {}
+                return true;
+            }).catch(function (err) {
+                console.warn('[Artplayer] subtitle load failed', { url: url, type: fmt, error: err });
+                return false;
+            });
+        }
+
+        if (subSelector.length > 1) {
+            subtitleSettings.push({
+                html: playerUiStrings.subtitles,
+                tooltip: playerUiStrings.subtitles,
+                selector: subSelector,
+                onSelect: function (item) {
+                    applySubtitle(artRef, item.url, item.format);
+                    return item.html;
+                },
+            });
+        }
+
+        const settingsForPlayer = [];
+        if (qualityForArt.length > 1) {
+            // Keep a single source of truth for the selector list so we can
+            // flip the `default` flag when the user picks a new quality.
+            var qualitySelectorList = qualityForArt.map(function (q) {
+                return { html: q.html, url: q.url, default: !!q.default, _kind: q._kind || 'native' };
+            });
+
+            function markActiveQuality(selectedItem) {
+                qualitySelectorList.forEach(function (row) {
+                    row.default = row === selectedItem
+                        || (row.html === selectedItem.html && row.url === selectedItem.url);
+                });
+            }
+
+            settingsForPlayer.push({
+                html: playerUiStrings.quality,
+                tooltip: playerUiStrings.quality,
+                selector: qualitySelectorList,
+                onSelect: function (item) {
+                    var a = artRef;
+
+                    // Move the checkmark to the just-selected quality so that
+                    // re-opening the menu shows only the active one ticked.
+                    markActiveQuality(item);
+
+                    // If the user picked an iframe quality, tear down Artplayer and mount an iframe.
+                    if (item._kind && item._kind !== 'native') {
+                        try { if (midRollMgr) midRollMgr.detach(); } catch (e) {}
+                        try { a && a.destroy(); } catch (e) {}
+                        artRef = null;
+                        mountIframeInSlot(buildIframeSrc(item._kind, item.url, 0));
+                        return item.html;
+                    }
+
+                    if (!a || typeof a.switchQuality !== 'function') return item.html;
+
+                    var resumeAt = 0;
+                    var wasPlaying = false;
+                    try {
+                        resumeAt = Math.max(0, Number(a.currentTime) || 0);
+                        wasPlaying = !a.video || !a.video.paused;
+                    } catch (e) {}
+
+                    var restored = false;
+                    function applySeek() {
+                        if (restored) return;
+                        var v = a && a.video;
+                        if (!v) return;
+                        if (isNaN(v.duration) || v.duration <= 0) return;
+
+                        try {
+                            if (resumeAt > 0) {
+                                v.currentTime = Math.min(resumeAt, v.duration - 0.1);
+                            }
+                            if (wasPlaying) {
+                                var p = v.play();
+                                if (p && typeof p.catch === 'function') p.catch(function () {});
+                            }
+                            restored = true;
+                            a.off('video:loadedmetadata', applySeek);
+                            a.off('video:canplay', applySeek);
+                            a.off('video:loadeddata', applySeek);
+                        } catch (err) {}
+                    }
+
+                    try {
+                        a.on('video:loadedmetadata', applySeek);
+                        a.on('video:canplay', applySeek);
+                        a.on('video:loadeddata', applySeek);
+                    } catch (eBind) {}
+
+                    // Fallback poll for HLS streams where events don't fire as expected.
+                    var pollAttempts = 0;
+                    var pollTimer = setInterval(function () {
+                        pollAttempts++;
+                        if (restored || pollAttempts > 30) {
+                            clearInterval(pollTimer);
+                            return;
+                        }
+                        applySeek();
+                    }, 300);
+
+                    try {
+                        a.switchQuality(item.url);
+                    } catch (eSwitch) {
+                        console.warn('switchQuality failed', eSwitch);
+                    }
+
+                    return item.html;
+                },
+            });
+        }
+        subtitleSettings.forEach(function (row) {
+            settingsForPlayer.push(row);
+        });
+
+        var defaultSubtitle = subtitleTracks.find(function (t) {
+            return isSubtitleDefaultFlag(t.is_default);
+        });
+        var initialSubtitle = null;
+        if (defaultSubtitle && defaultSubtitle.subtitle_file) {
+            initialSubtitle = {
+                url: defaultSubtitle.subtitle_file,
+                type: defaultSubtitle.format || inferSubtitleFormat(defaultSubtitle.subtitle_file),
+                encoding: 'utf-8',
+                style: subtitleStyle,
+            };
+        } else if (!hasDefaultSubtitle && subSelector.length > 1) {
+            var preload = subtitleTracks.find(function (t) {
+                return t.subtitle_file;
+            });
+            if (preload && preload.subtitle_file) {
+                initialSubtitle = {
+                    url: preload.subtitle_file,
+                    type: preload.format || inferSubtitleFormat(preload.subtitle_file),
+                    encoding: 'utf-8',
+                    style: subtitleStyle,
+                };
+            }
+        }
+
+        /* Phase tracks which URL is currently loaded in Artplayer. */
+        let adPhase = prerollQueue.length > 0;
+        const initialUrl = adPhase
+            ? window.OTTPlayerAds.resolveMediaUrl(prerollQueue[0].media, apiBaseUrl)
+            : videoUrl;
+        /*
+         | HLS re-attach happens on EVERY quality/subtitle change. Seeking to `resumeTime`
+         | inside MANIFEST_PARSED must therefore be ONE-SHOT — otherwise selecting a quality
+         | mid-movie yanks playback back to the old resume position.
+         */
+        let mainHlsInitialSeekApplied = resumeTime <= 0;
+
+        const artOptions = {
             container: '#artplayer',
-            url: videoUrl,
+            url: initialUrl,
+            lang: @json(str_replace('_', '-', app()->getLocale())),
             autoplay: true,
-            currentTime: resumeTime, // Resume from last watched time
-            fullscreen: true,
-            hotkey: true,
-            pip: true,
+            currentTime: adPhase ? 0 : resumeTime,
+            fullscreen: !adPhase,
+            hotkey: !adPhase,
+            pip: !adPhase,
+            setting: settingsForPlayer.length > 0,
+            settings: settingsForPlayer,
             customType: {
                 m3u8(video, url) {
+                    /* Tear down previous Hls on switchUrl so MP4 ad → HLS movie (or vice versa) works cleanly. */
+                    if (art && art._ottHls) {
+                        try { art._ottHls.destroy(); } catch (e) {}
+                        art._ottHls = null;
+                    }
                     if (window.Hls && Hls.isSupported()) {
                         const hls = new Hls();
                         hls.loadSource(url);
                         hls.attachMedia(video);
+                        if (art) art._ottHls = hls;
 
-                        if (resumeTime > 0) {
-                             hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                                 video.currentTime = resumeTime;
-                             });
+                        if (!adPhase && !mainHlsInitialSeekApplied && url === videoUrl) {
+                            mainHlsInitialSeekApplied = true;
+                            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+                                try { video.currentTime = resumeTime; } catch (e) {}
+                            });
                         }
                     }
-                }
+                },
+            },
+        };
+        if (!adPhase && initialSubtitle) {
+            artOptions.subtitle = initialSubtitle;
+        }
+
+        const art = new Artplayer(artOptions);
+        artRef = art;
+
+        art.on('destroy', function () {
+            if (art._ottHls) {
+                try { art._ottHls.destroy(); } catch (e) {}
+                art._ottHls = null;
             }
         });
+
+        function describeMediaError(video) {
+            try {
+                var err = video && video.error;
+                if (!err) return null;
+                var codes = { 1: 'MEDIA_ERR_ABORTED', 2: 'MEDIA_ERR_NETWORK', 3: 'MEDIA_ERR_DECODE', 4: 'MEDIA_ERR_SRC_NOT_SUPPORTED' };
+                return { code: err.code, name: codes[err.code] || 'UNKNOWN', message: err.message || '', src: video.currentSrc || '' };
+            } catch (e) { return null; }
+        }
+
+        art.on('video:error', function (e) {
+            var info = describeMediaError(art && art.video);
+            console.warn('[Artplayer] video error', info || e);
+            if (info && info.code === 2) {
+                setTimeout(function () { try { art.video.load(); art.play(); } catch (_) {} }, 1000);
+            }
+        });
+
+        art.on('error', function (err) {
+            console.warn('[Artplayer] error', err);
+        });
+
+        (function suppressArtplayerPromiseRejections() {
+            if (window.__artUnhandledHooked) return;
+            window.__artUnhandledHooked = true;
+            window.addEventListener('unhandledrejection', function (event) {
+                var reason = event && event.reason;
+                if (reason && reason.type === 'error' && reason.target && reason.target.tagName === 'VIDEO') {
+                    var info = describeMediaError(reason.target);
+                    console.warn('[Artplayer] unhandled video play() rejection', info || reason);
+                    event.preventDefault();
+                }
+            });
+        })();
+
+        function attachMidRoll() {
+            if (
+                !midrollCues.length ||
+                typeof window.OTTMidRollManager !== 'function' ||
+                typeof window.OTTPlayerAds === 'undefined' ||
+                typeof window.OTTPreRoll === 'undefined'
+            ) {
+                return;
+            }
+            midRollMgr = new window.OTTMidRollManager({
+                art: art,
+                cuePoints: midrollCues,
+                initialContentTime: resumeTime,
+                mode: 'in-player',
+                playerAds: window.OTTPlayerAds,
+                ottPreRoll: window.OTTPreRoll,
+                apiBaseUrl: apiBaseUrl,
+                csrfToken: '{{ csrf_token() }}',
+                contentId: entertainmentId,
+                contentType: entertainmentType,
+                categoryIdValue: categoryId,
+                mainVideoUrl: videoUrl,
+                container: container,
+                playerSlot: document.getElementById('mainArtplayerSlot'),
+                overlayHost: container,
+            });
+            midRollMgr.attach();
+        }
+
+        /** Swap the ad that is currently loaded in Artplayer for the real movie. */
+        function loadMainFeature() {
+            adPhase = false;
+
+            /* YouTube / Vimeo / Embedded: Artplayer cannot play these inside a <video>.
+               Destroy Artplayer and mount an iframe. Mid-roll is skipped for iframe types
+               (no reliable cross-origin way to pause & resume them). */
+            if (isIframeVideoType) {
+                if (midRollMgr && typeof midRollMgr.detach === 'function') {
+                    midRollMgr.detach();
+                    midRollMgr = null;
+                }
+                try { art.destroy(); } catch (e) {}
+                artRef = null;
+                mountIframeInSlot(buildIframeSrc(videoType, videoUrl, resumeTime));
+                return;
+            }
+
+            try {
+                if (typeof art.switchUrl === 'function') {
+                    art.switchUrl(videoUrl);
+                } else {
+                    art.url = videoUrl;
+                }
+            } catch (eSwap) {
+                console.error('switchUrl failed', eSwap);
+            }
+            /* Re-enable features disabled during the ad phase. */
+            try { art.option.hotkey = true; } catch (e) {}
+            try { art.option.pip = true; } catch (e) {}
+            try { art.option.fullscreen = true; } catch (e) {}
+
+            setTimeout(function () {
+                try {
+                    if (resumeTime > 0 && art.video && art.video.currentTime < 1) {
+                        art.currentTime = resumeTime;
+                    }
+                } catch (e) {}
+                if (initialSubtitle) {
+                    applySubtitle(art, initialSubtitle.url, initialSubtitle.type);
+                }
+                try {
+                    var p = art.play && art.play();
+                    if (p && typeof p.catch === 'function') p.catch(function () {});
+                } catch (ePlay) {}
+                attachMidRoll();
+            }, 120);
+        }
+
+        if (adPhase) {
+            /* Run queue in-player, then swap to movie. Artplayer already loaded ad[0], so runInPlayer will
+               replay it cleanly as ad[0] — we want the correct timer/skip/analytics UI for every entry. */
+            window.OTTPlayerAds.runInPlayer(art, prerollQueue, {
+                baseUrl: apiBaseUrl,
+                maxAdDurationMs: 4 * 60 * 1000,
+                container: container,
+                strings: {
+                    skipLabel: @json(__('frontend.skip_ad')),
+                    adPrefix: @json(rtrim(__('frontend.ad_timer_prefix'), ':')),
+                    adsSeparator: @json(__('frontend.ads_separator')),
+                    timerUnit: @json(' ' . __('frontend.ad_seconds_unit')),
+                },
+                onAnalytics: function (evt) {
+                    try {
+                        window.dispatchEvent(new CustomEvent('ott:preroll', { detail: evt }));
+                    } catch (e) {}
+                },
+            }).then(loadMainFeature, loadMainFeature);
+        } else {
+            attachMidRoll();
+        }
 
         art.on('ready', () => {
-            if (resumeTime > 0 && art.currentTime < 1) {
+            if (!adPhase && resumeTime > 0 && art.currentTime < 1) {
                 art.currentTime = resumeTime;
             }
+            if (!adPhase && initialSubtitle) {
+                applySubtitle(art, initialSubtitle.url, initialSubtitle.type);
+            }
         });
-
-        /* -------------------------------------------------
-        | ▶ LOGGING RESUME
-        ------------------------------------------------- */
-        console.log('Player initialized with resumeTime:', resumeTime);
 
         /* -------------------------------------------------
         | 💾 SAVE CONTINUE WATCH (EVERY 15s)
         ------------------------------------------------- */
         let lastSaved = 0;
 
+        let lastFlushedCw = 0;
+        function flushContinueWatch() {
+            if (adPhase || !art || !art.video) return;
+            var ct = Math.floor(art.video.currentTime || 0);
+            var dur = Math.floor(art.video.duration || 0);
+            if (ct < 2 || !dur) return;
+            if (ct === lastFlushedCw) return;
+            lastFlushedCw = ct;
+            fetch('{{ route("frontend.continueWatch.store") }}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    entertainment_id: entertainmentId,
+                    entertainment_type: entertainmentType,
+                    profile_id: profileId,
+                    watched_time: ct,
+                    total_time: dur
+                })
+            }).catch(function () {});
+        }
+
         art.on('video:timeupdate', () => {
+            if (adPhase) return;
             if (art.video.currentTime - lastSaved < 15) return;
 
             lastSaved = Math.floor(art.video.currentTime);
-            console.log('Saving progress:', lastSaved);
 
             fetch('{{ route("frontend.continueWatch.store") }}', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     entertainment_id: entertainmentId,
                     entertainment_type: entertainmentType,
@@ -609,7 +1102,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     watched_time: Math.floor(art.video.currentTime),
                     total_time: Math.floor(art.video.duration)
                 })
-            });
+            }).catch(function () {});
+        });
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden') flushContinueWatch();
+        });
+        window.addEventListener('pagehide', function () {
+            flushContinueWatch();
         });
         
         /* -------------------------------------------------
@@ -620,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', function () {
         
         if (isPPV) {
             art.on('video:timeupdate', async () => {
-        
+                if (adPhase) return;
                 if (!art.video.duration || ticketLocked) return;
         
                 const percent = Math.floor(
@@ -652,9 +1152,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (data.status === 'get_ticket') {
                         ticketLocked = true;
         
+                        if (midRollMgr && typeof midRollMgr.detach === 'function') {
+                            midRollMgr.detach();
+                        }
                         art.pause();
                         art.destroy();
-        
+                        const lockedSlot = document.getElementById('mainArtplayerSlot');
+                        if (lockedSlot) {
+                            lockedSlot.innerHTML = '';
+                            lockedSlot.style.display = 'none';
+                            lockedSlot.setAttribute('aria-hidden', 'true');
+                        }
+
                         const wrapper = document.querySelector('.play-button-wrapper');
                         if (wrapper) {
                             wrapper.innerHTML = `
@@ -665,7 +1174,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             `;
                         }
         
-                        document.querySelector('.movie-overlay').style.display = 'block';
+                        if (overlay) {
+                            overlay.style.display = 'block';
+                        }
                     }
         
                 } catch (e) {
@@ -680,6 +1191,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ------------------------------------------------- */
         if (isPPV) {
             art.on('video:ended', async () => {
+                if (adPhase) return;
                 await fetch('{{ route("ppv.consumeTicket") }}', {
                     method: 'POST',
                     headers: {
@@ -695,221 +1207,4 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
-
-
-<style>
-    .art-control-progress,
-    .art-control-progress-inner {
-        display: none !important;
-    }
-
-    .mute-btn {
-        position: absolute;
-        bottom: 25px;
-        inset-inline-end: 25px;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        width: 46px;
-        height: 46px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        z-index: 15;
-        transition: background 0.3s ease;
-    }
-
-    .mute-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-    }
-
-    .mute-btn i {
-        font-size: 18px;
-    }
-
-    .plyr--video {
-        --plyr-color-main: #ffffff;
-    }
-
-    .plyr__controls {
-        background: rgba(0, 0, 0, 0.35) !important;
-        border-radius: 0 0 8px 8px;
-    }
-
-    .js-minimal-player {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .custom-controls {
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
-        display: flex;
-        gap: 10px;
-        z-index: 10;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .video-player-wrapper:hover .custom-controls {
-        opacity: 1;
-    }
-
-    .custom-controls button,
-    .custom-controls select {
-        background: rgba(0, 0, 0, 0.7);
-        color: #fff;
-        border: none;
-        border-radius: 4px;
-        padding: 6px 10px;
-        cursor: pointer;
-        font-size: 14px;
-    }
-
-    .custom-controls button:hover,
-    .custom-controls select:hover {
-        background: rgba(255, 255, 255, 0.2);
-    }
-
-    .video-player-wrapper {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-    }
-
-    /* ✅ Prime/Netflix style overlay (left dark band + bottom black fade) */
-    .movie-overlay{
-      position:absolute;
-      inset:0;
-      display:flex;
-      align-items:flex-end;
-      justify-content:flex-start;
-      padding:60px;
-      color:#fff;
-      z-index:5;
-      overflow:hidden;
-    
-      /* IMPORTANT: remove old gradient */
-      background: none !important;
-    }
-    
-    /* Left-side darkness for title/description (Prime-like) */
-    .movie-overlay::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      z-index:0;
-      pointer-events:none;
-      background: linear-gradient(
-        90deg,
-        rgba(0,0,0,0.75) 0%,
-        rgba(0,0,0,0.55) 28%,
-        rgba(0,0,0,0.25) 48%,
-        rgba(0,0,0,0.00) 65%
-      );
-    }
-    html[dir="rtl"] .movie-overlay::before {
-      transform: scaleX(-1);
-    }
-    
-    /* Bottom black fade (strong at bottom, clear at top) */
-    .movie-overlay::after{
-      content:"";
-      position:absolute;
-      inset:0;
-      z-index:0;
-      pointer-events:none;
-      background: linear-gradient(
-        0deg,
-        rgba(0,0,0,1.00) 0%,
-        rgba(0,0,0,0.92) 18%,
-        rgba(0,0,0,0.55) 40%,
-        rgba(0,0,0,0.18) 58%,
-        rgba(0,0,0,0.00) 72%
-      );
-    }
-    
-    /* Make sure text stays above gradients */
-    .movie-overlay-content{
-      position:relative;
-      z-index:1;
-    }
-    
-    /* Optional: improves readability without extra darkness */
-    .movie-title,
-    .movie-description{
-      text-shadow: 0 2px 12px rgba(0,0,0,0.55);
-    }
-
-
-    .movie-overlay-content {
-        max-width: 600px;
-    }
-
-    .movie-title {
-        font-size: 40px;
-        font-weight: 700;
-        margin-bottom: 15px;
-    }
-
-    .movie-description {
-        font-size: 16px;
-        opacity: 0.9;
-        margin-bottom: 25px;
-    }
-
-    .btn-watch-now {
-        background: #91969e;
-        color: white;
-        border: none;
-        padding: 10px 15px;
-        border-radius: 4px;
-        font-size: 16px;
-        cursor: pointer;
-        transition: background 0.3s ease;
-    }
-
-    .btn-watch-now:hover {
-        background: rgb(116 120 126);
-    }
-
-    @media (max-width: 768px) {
-        .movie-overlay {
-            padding: 25px;
-            align-items: flex-end;
-        }
-
-        .movie-title {
-            font-size: 26px;
-        }
-
-        .movie-description {
-            font-size: 14px;
-        }
-    }
-
-    .video-player-wrapper {
-        position: relative;
-        width: 100%;
-        margin: 0 auto;
-        height: 650px;
-        overflow: hidden;
-        max-height: 650px;
-    }
-
-    #videoContainer,
-    #trailerPlayer,
-    #mainPlayer,
-    iframe {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    
-
-</style>
+@endpush

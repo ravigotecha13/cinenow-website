@@ -278,5 +278,14 @@ return [
 'enter_pin' => 'أدخل رمز PIN',
 'confirm_pin' => 'تأكيد رمز PIN',
 'enter_your_pin' => 'أدخل رقم التعريف الشخصي الخاص بك.',
+
+    'ad_timer_prefix' => 'إعلان:',
+    'ad_seconds_unit' => 'ثانية',
+    'ads_separator' => 'من',
+    'skip_ad' => 'تخطّي الإعلان',
+
+    'player_quality' => 'الجودة',
+    'player_subtitles' => 'الترجمة',
+    'player_subtitles_off' => 'إيقاف',
 ];
 

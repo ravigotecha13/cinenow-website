@@ -230,6 +230,103 @@ document.addEventListener('DOMContentLoaded', function () {
   let isVideoLoaded = false
   let currentVideoUrl = ''
   let isWatchHistorySaved = false
+  let lastContinueWatchSavedAt = 0
+
+  function toHMS(seconds) {
+    const s = Math.max(0, Math.floor(Number(seconds) || 0))
+    return new Date(s * 1000).toISOString().substr(11, 8)
+  }
+
+  function getContinueWatchPayload() {
+    try {
+      if (!isAuthenticated) return null
+      const currentTime = player.currentTime ? player.currentTime() : 0
+      const duration = (player.duration ? player.duration() : 0) || 0
+      if (!currentTime || currentTime < 3) return null
+
+      const entertainmentId = currentEntertainmentId
+        || watchNowButton?.getAttribute('data-entertainment-id')
+        || seasonWatchBtn?.getAttribute('data-entertainment-id')
+      const entertainmentType = currentEntertainmentType
+        || watchNowButton?.getAttribute('data-entertainment-type')
+        || seasonWatchBtn?.getAttribute('data-entertainment-type')
+      const profileId = watchNowButton?.getAttribute('data-profile-id')
+        || seasonWatchBtn?.getAttribute('data-profile-id')
+        || videoEl.getAttribute('data-profile-id')
+      const episodeId = currentEpisodeId
+        || watchNowButton?.getAttribute('data-episode-id')
+        || seasonWatchBtn?.getAttribute('data-episode-id')
+
+      if (!entertainmentId || !entertainmentType) return null
+
+      const percentage = duration > 0 ? (currentTime / duration) * 100 : 0
+
+      return {
+        entertainment_id: entertainmentId,
+        entertainment_type: entertainmentType,
+        total_watched_time: toHMS(duration),
+        watched_time: toHMS(currentTime),
+        episode_id: episodeId,
+        profile_id: profileId,
+        video_url: currentVideoUrl,
+        percentage: percentage
+      }
+    } catch (e) {
+      return null
+    }
+  }
+
+  function saveContinueWatchProgress(useBeacon) {
+    const payload = getContinueWatchPayload()
+    if (!payload) return
+
+    const url = `${baseUrl}/api/save-continuewatch`
+    const body = JSON.stringify(payload)
+
+    if (useBeacon && navigator.sendBeacon) {
+      try {
+        const blob = new Blob([body], { type: 'application/json' })
+        navigator.sendBeacon(url, blob)
+        lastContinueWatchSavedAt = Date.now()
+        return
+      } catch (_) {}
+    }
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': csrfToken
+      },
+      body: body,
+      keepalive: true
+    }).then(() => {
+      lastContinueWatchSavedAt = Date.now()
+    }).catch((error) => console.error('Error saving continue watching:', error))
+  }
+
+  player.on('timeupdate', function () {
+    if (!isAuthenticated) return
+    if (Date.now() - lastContinueWatchSavedAt < 15000) return
+    saveContinueWatchProgress(false)
+  })
+
+  player.on('pause', function () {
+    if (!isAuthenticated) return
+    if (player.seeking && player.seeking()) return
+    if (player.ended && player.ended()) return
+    saveContinueWatchProgress(false)
+  })
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden') {
+      saveContinueWatchProgress(true)
+    }
+  })
+
+  window.addEventListener('pagehide', function () {
+    saveContinueWatchProgress(true)
+  })
 
   async function CheckDeviceType() {
     try {
@@ -524,6 +621,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const subtitles = JSON.parse(watchNowButton.getAttribute('data-subtitle-info'));
 
+  const AUTO_RESUME_KEY = 'cinenow:auto-resume-after-nav';
+
+  function markAutoResume() {
+    try {
+      const btn = watchNowButton || seasonWatchBtn;
+      if (!btn) return;
+      const entertainmentId = btn.getAttribute('data-entertainment-id');
+      const entertainmentType = btn.getAttribute('data-entertainment-type');
+      if (!entertainmentId || !entertainmentType) return;
+
+      sessionStorage.setItem(AUTO_RESUME_KEY, JSON.stringify({
+        id: entertainmentId,
+        type: entertainmentType,
+        ts: Date.now()
+      }));
+    } catch (_) {}
+  }
+
+  document.querySelectorAll('.dropdown-menu-language a[href]').forEach(function (link) {
+    link.addEventListener('click', function () {
+      if (player && typeof player.currentTime === 'function' && player.currentTime() > 3) {
+        saveContinueWatchProgress(true);
+        markAutoResume();
+      }
+    });
+  });
+
+  (function handleAutoResumeAfterNav() {
+    try {
+      const raw = sessionStorage.getItem(AUTO_RESUME_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(AUTO_RESUME_KEY);
+
+      const data = JSON.parse(raw);
+      if (!data || !data.id || !data.type) return;
+      if (Date.now() - (data.ts || 0) > 60000) return;
+
+      const btn = watchNowButton || seasonWatchBtn;
+      if (!btn) return;
+      const btnId = btn.getAttribute('data-entertainment-id');
+      const btnType = btn.getAttribute('data-entertainment-type');
+      if (btnId !== data.id || btnType !== data.type) return;
+
+      setTimeout(function () { btn.click(); }, 400);
+    } catch (_) {}
+  })();
+
   if (watchNowButton) {
     watchNowButton.addEventListener('click', async function (e) {
       contentId = watchNowButton.getAttribute('data-contentid') || '';
@@ -551,13 +695,15 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       // }
 
-      // Reset custom ad flag for new content selection
-      customAdPlayed = false;
-      customAdAttempts = 0; // Reset attempts counter
+      if (!isPrerollAlreadyShown()) {
+        customAdPlayed = false;
+        customAdAttempts = 0;
+      } else {
+        customAdPlayed = true;
+      }
 
       showCustomAdThenPlayMain(function () {
         loadAdsAndStartInterval();
-        // 3. Only after the ad is done, play the main content
         handleWatchButtonClick(watchNowButton);
       });
     })
@@ -595,9 +741,12 @@ document.addEventListener('DOMContentLoaded', function () {
         skipBtn.style.display = 'none';
       }
 
-      // Reset custom ad flag for new episode selection
-      customAdPlayed = false;
-      customAdAttempts = 0; // Reset attempts counter
+      if (!isPrerollAlreadyShown()) {
+        customAdPlayed = false;
+        customAdAttempts = 0;
+      } else {
+        customAdPlayed = true;
+      }
 
       showCustomAdThenPlayMain(function () {
         loadAdsAndStartInterval();
@@ -624,46 +773,61 @@ document.addEventListener('DOMContentLoaded', function () {
         qualityDropdown.appendChild(qualityOption)
       })
 
+      function swapSource(targetPlayer, sourceDescriptor) {
+        if (!targetPlayer || !sourceDescriptor) return;
+
+        const resumeAt = Math.max(0, Number(targetPlayer.currentTime && targetPlayer.currentTime()) || 0);
+        const wasPaused = typeof targetPlayer.paused === 'function' ? targetPlayer.paused() : false;
+
+        targetPlayer.one('loadedmetadata', function () {
+          try {
+            if (resumeAt > 0) {
+              targetPlayer.currentTime(resumeAt);
+            }
+            setSubtitle(targetPlayer, subtitleInfo);
+            if (!wasPaused) {
+              const playPromise = targetPlayer.play();
+              if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(function () {});
+              }
+            }
+          } catch (e) {
+            console.error('Error restoring position after quality change:', e);
+          }
+        });
+
+        targetPlayer.src(sourceDescriptor);
+        targetPlayer.load();
+      }
+
       qualityDropdown.addEventListener('change', function () {
         const selectedQuality = this.value;
-        var videoId = null;
-        var platform = null;
-        var url = null;
 
         const dataType = document.querySelector('.vjs-quality-selector select')
           ?.selectedOptions[0]?.getAttribute('data-type');
 
         const filteredOptions = qualityOptions.filter(option => option.url.type === 'Local' && dataType === option.url.type);
-        // Check if a quality option was found and process it
+
         if (filteredOptions.length > 0) {
-          const option = filteredOptions[0]; // Assuming you just want the first match
-          const videoSource = document.querySelectorAll('#videoSource'); // Use querySelector for a single element
-
-          if (videoSource) {
-            videoSource.src = option.url.value; // Set the local video source
-
-            const videoPlayer = videojs('videoPlayer');
-            videoPlayer.src({ type: 'video/mp4', src: option.url.value });
-            setSubtitle(videoPlayer, subtitleInfo);
-            videoPlayer.load();
-            videoPlayer.play();
-          }
+          const option = filteredOptions[0];
+          const videoPlayer = videojs('videoPlayer');
+          swapSource(videoPlayer, { type: 'video/mp4', src: option.url.value });
         } else {
-          // Handle external video platforms
           fetch(`${baseUrl}/video/stream/${encodeURIComponent(selectedQuality)}`)
             .then(response => response.json())
             .then(data => {
-              const { videoId, platform } = data;
+              const { videoId, platform, url } = data;
+              let descriptor = null;
               if (platform === 'youtube') {
-                player.src({ type: 'video/youtube', src: `https://www.youtube.com/watch?v=${videoId}` });
+                descriptor = { type: 'video/youtube', src: `https://www.youtube.com/watch?v=${videoId}` };
               } else if (platform === 'vimeo') {
-                player.src({ type: 'video/vimeo', src: `https://vimeo.com/${videoId}` });
+                descriptor = { type: 'video/vimeo', src: `https://vimeo.com/${videoId}` };
               } else if (platform === 'hls') {
-                player.src({ type: 'application/x-mpegURL', src: url });
+                descriptor = { type: 'application/x-mpegURL', src: url };
+              } else if (url) {
+                descriptor = { type: 'video/mp4', src: url };
               }
-              setSubtitle(player, subtitleInfo);
-              player.load();
-              player.play();
+              if (descriptor) swapSource(player, descriptor);
             })
             .catch(error => console.error('Error playing video:', error));
         }
@@ -783,40 +947,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   })
 
-  window.addEventListener('beforeunload', async function () {
-    const entertainmentId = currentEntertainmentId || watchNowButton?.getAttribute('data-entertainment-id') || seasonWatchBtn?.getAttribute('data-entertainment-id')
-    const entertainmentType = currentEntertainmentType || watchNowButton?.getAttribute('data-entertainment-type') || seasonWatchBtn?.getAttribute('data-entertainment-type')
-    const EpisodeId = currentEpisodeId || watchNowButton?.getAttribute('data-episode-id') || seasonWatchBtn?.getAttribute('data-episode-id')
-
-    if (isAuthenticated && currentVideoUrl && entertainmentId && entertainmentType) {
-      const currentTime = player.currentTime()
-      const duration = player.duration() || 0
-      const toHMS = (seconds) => new Date(seconds * 1000).toISOString().substr(11, 8);
-      const watchedTimeHMS = toHMS(currentTime)
-      const totalTimeHMS = toHMS(duration)
-
-      fetch(`${baseUrl}/api/save-continuewatch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
-          entertainment_id: entertainmentId,
-          entertainment_type: entertainmentType,
-          total_watched_time: totalTimeHMS,
-          watched_time: watchedTimeHMS,
-          episode_id: EpisodeId,
-          video_url: currentVideoUrl
-        })
-      })
-
-        .then((response) => response.json())
-        .then((data) => {
-
-        })
-        .catch((error) => console.error('Error saving continue watching:', error))
-    }
+  window.addEventListener('beforeunload', function () {
+    saveContinueWatchProgress(true)
   })
 
   // Function to initialize Kaltura Playkit player
@@ -1858,6 +1990,17 @@ document.addEventListener('DOMContentLoaded', function () {
   const MAX_AD_ATTEMPTS = 3;
   let customAdsDisabled = false; // Nuclear option to disable custom ads
 
+  const prerollPlayedForContent = new Set();
+  function contentKey(id, type) {
+    return `${id || ''}:${type || ''}`;
+  }
+  function isPrerollAlreadyShown() {
+    return prerollPlayedForContent.has(contentKey(contentId, contentType));
+  }
+  function markPrerollShown() {
+    prerollPlayedForContent.add(contentKey(contentId, contentType));
+  }
+
   function debugLog(message, data = null) {
     const timestamp = new Date().toISOString();
     // console.log(`[${timestamp}] ${message}`, data ?? '');
@@ -2387,6 +2530,7 @@ document.addEventListener('DOMContentLoaded', function () {
               blockPlay = false;
               customAdPlayed = true;
               customAdShowing = false;
+              markPrerollShown();
 
               if (typeof afterAdCallback === 'function') afterAdCallback();
             }
@@ -2479,49 +2623,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function startPlaybackInterval() {
     if (playbackInterval) clearInterval(playbackInterval);
-
-    playbackInterval = setInterval(() => {
-      const current = player.currentTime();
-      const duration = player.duration();
-
-      if (!duration || isNaN(duration) || duration <= 0) {
-        // console.log('Duration not available yet, skipping interval check');
-        return;
-      }
-
-      if (!midRollPlayed && midRollTime > 0 && current >= midRollTime) {
-        midRollPlayed = true;
-        // console.log('Playing mid-roll ad at', current);
-        player.pause();
-        playAdsByType('mid-roll', () => player.play());
-      }
-
-      if (!midRollPlayed && midRollTime > 0 && current > midRollTime + 5 && !forcedMidRollPending) {
-        forcedMidRollPending = true;
-        // console.log('Setting forced mid-roll pending');
-      }
-
-      if (forcedMidRollPending && midRollTime > 0 && current > midRollTime + 5) {
-        midRollPlayed = true;
-        forcedMidRollPending = false;
-        // console.log('Playing forced mid-roll ad');
-        player.pause();
-        playAdsByType('mid-roll', () => player.play());
-      }
-
-      if (!postRollPlayed && duration > 0 && current >= duration * 0.9) {
-        postRollPlayed = true;
-        // console.log('Playing post-roll ad at', current);
-        playAdsByType('post-roll');
-      }
-
-      if (!midRollPlayed && adQueue.filter(a => a.type === 'mid-roll').length > 0) {
-        // console.log('[AD DEBUG] Mid-roll ad expected but not played. Time:', current);
-      }
-      if (!postRollPlayed && adQueue.filter(a => a.type === 'post-roll').length > 0) {
-        // console.log('[AD DEBUG] Post-roll ad expected but not played. Time:', current);
-      }
-    }, 1000);
+    // Mid-roll / post-roll / overlay ads intentionally disabled — only pre-roll plays.
   }
 
   player.ready(function () {
@@ -2586,19 +2688,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     player.on('ended', function () {
-      debugLog('Video ended, checking for remaining ads');
+      debugLog('Video ended');
       hideSkipButton();
-
-      if (!postRollPlayed) {
-        postRollPlayed = true;
-        playAdsByType('post-roll');
-      }
-
-      if (!midRollPlayed && midRollTime > 0) {
-        midRollPlayed = true;
-        playAdsByType('mid-roll');
-      }
-
       if (playbackInterval) clearInterval(playbackInterval);
     });
 
@@ -2640,11 +2731,12 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(response => {
         // console.log('Ads API response', response);
         if (!response.success || !response.data) throw new Error('No ads');
-        adQueue = response.data;
-        overlayAds = adQueue.filter(a => a.type === 'overlay');
+        adQueue = (response.data || []).filter(a => a && a.type === 'pre-roll');
+        overlayAds = [];
         // console.log('Loaded ad types:', adQueue.map(a => a.type));
 
-        const hasPreRoll = adQueue.some(ad => ad.type === 'pre-roll');
+        const prerollAlreadyDone = isPrerollAlreadyShown();
+        const hasPreRoll = !prerollAlreadyDone && adQueue.some(ad => ad.type === 'pre-roll');
 
         // Wait for metadata to be loaded before scheduling ads
         if (player.readyState() >= 1) {
@@ -2666,7 +2758,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Pre-roll logic
         if (hasPreRoll) {
-          playAdsByType('pre-roll', startVideo);
+          playAdsByType('pre-roll', function () {
+            markPrerollShown();
+            startVideo();
+          });
         } else {
           startVideo();
         }

@@ -9,8 +9,13 @@
                         @endif
                         <ul class="p-0 mb-0 list-inline d-flex flex-wrap align-items-center movie-tags">
                             @foreach($data['genres'] as $gener)
-                            <li class="position-relative fw-semibold">{{ $gener['name'] }}</li>
-                         @endforeach
+                                @php
+                                    $tagName = app()->getLocale() === 'ar'
+                                        ? ($gener['name_ar'] ?? $gener['name_en'] ?? $gener['name'] ?? '')
+                                        : ($gener['name_en'] ?? $gener['name'] ?? '');
+                                @endphp
+                                <li class="position-relative fw-semibold">{{ $tagName }}</li>
+                            @endforeach
                         </ul>
                     </div>
                     @if($data['access'] == 'pay-per-view' && !\Modules\Entertainment\Models\Entertainment::isPurchased($data['id'],'episode'))

@@ -26,7 +26,12 @@
         <!-- Genres -->
         <ul class="mm-genres">
             @foreach(($movie['genres'] ?? []) as $gener)
-                <li>{{ $gener['name'] ?? '--' }}</li>
+                @php
+                    $genreName = app()->getLocale() === 'ar'
+                        ? ($gener['name_ar'] ?? $gener['name_en'] ?? $gener['name'] ?? '--')
+                        : ($gener['name_en'] ?? $gener['name'] ?? '--');
+                @endphp
+                <li>{{ $genreName }}</li>
             @endforeach
         </ul>
 

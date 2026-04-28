@@ -1,0 +1,423 @@
+/**
+ * Hero / detail video + OTT pre-roll (scoped to #video-section / #videoContainer).
+ * Loaded via mix → public/css/hero-thumbnail.css
+ */
+
+#videoContainer .mute-btn {
+  position: absolute;
+  bottom: 25px;
+  inset-inline-end: 25px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 15;
+  transition: background 0.3s ease;
+}
+
+#videoContainer.ott-preroll-phase-open .mute-btn {
+  z-index: 135;
+  bottom: 100px;
+}
+
+#videoContainer .mute-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+#videoContainer .mute-btn i {
+  font-size: 18px;
+}
+
+.movie-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 60px;
+  color: #fff;
+  z-index: 5;
+  overflow: hidden;
+  background: none !important;
+}
+
+.movie-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.55) 28%,
+    rgba(0, 0, 0, 0.25) 48%,
+    rgba(0, 0, 0, 0) 65%
+  );
+}
+
+html[dir="rtl"] .movie-overlay::before {
+  transform: scaleX(-1);
+}
+
+.movie-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.92) 18%,
+    rgba(0, 0, 0, 0.55) 40%,
+    rgba(0, 0, 0, 0.18) 58%,
+    rgba(0, 0, 0, 0) 72%
+  );
+}
+
+.movie-overlay-content {
+  position: relative;
+  z-index: 1;
+  max-width: 600px;
+}
+
+.movie-title,
+.movie-description {
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+}
+
+.movie-title {
+  font-size: 40px;
+  font-weight: 700;
+  margin-bottom: 15px;
+}
+
+.movie-description {
+  font-size: 16px;
+  opacity: 0.9;
+  margin-bottom: 25px;
+}
+
+.btn-watch-now {
+  background: #91969e;
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn-watch-now:hover {
+  background: rgb(116, 120, 126);
+}
+
+@media (max-width: 768px) {
+  .movie-overlay {
+    padding: 25px;
+    align-items: flex-end;
+  }
+
+  .movie-title {
+    font-size: 26px;
+  }
+
+  .movie-description {
+    font-size: 14px;
+  }
+}
+
+.video-player-wrapper {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+  height: 650px;
+  overflow: hidden;
+  max-height: 650px;
+}
+
+#videoContainer,
+.hero-trailer-video,
+#mainPlayer,
+#videoContainer iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+/* Poster image shown before/while the trailer video loads: center it */
+.hero-trailer-video {
+  background-position: center center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-color: #000;
+}
+
+/* The native <video> poster is rendered via object-fit/object-position too */
+.hero-trailer-video::-webkit-media-controls-panel,
+.hero-trailer-video::-webkit-media-controls {
+  display: none;
+}
+
+/*
+ | Artplayer chrome:
+ | 1) `.art-bottom-gradient()` — removed so no extra black fade strip.
+ | 2) `--art-progress-top-gap` (10px) + transparent bottom = padding shows `.art-video-player`’s
+ |    `background-color: #000` as a thick “second line” above the real scrubber — collapse that gap.
+ */
+#videoContainer #mainArtplayerSlot .art-video-player {
+  --art-progress-top-gap: 0px;
+  --art-bottom-gap: 2px;
+}
+
+#videoContainer #mainArtplayerSlot .art-video-player .art-bottom {
+  background-image: none !important;
+  background-color: transparent !important;
+  background-size: auto !important;
+}
+
+#videoContainer #mainArtplayerSlot .art-video-player .art-bottom .art-progress {
+  padding-top: 0 !important;
+}
+
+/* Hide Artplayer's inner (filled) progress — only the outer track stays. */
+#videoContainer #mainArtplayerSlot .art-video-player .art-control-progress-inner {
+  display: none !important;
+}
+
+/* Hide default Artplayer subtitle overlay (subtitles are delivered via selector/track only). */
+
+
+/* Hide Artplayer toast ("Pause", "Play", speed, etc.) in the top-left corner. */
+#videoContainer #mainArtplayerSlot .art-video-player .art-notice,
+#videoContainer #mainArtplayerSlot .art-video-player .art-notice-inner {
+  display: none !important;
+}
+
+/*
+ | Artplayer ships `.art-video-player { direction: ltr }` so controls stay LTR on RTL sites.
+ | Flip only `.art-controls` so play/volume/time move to the reading-start side and
+ | settings/PiP/fullscreen to the other side — without reversing the scrubber (progress
+ | uses physical `left` + clientX from the bar rect).
+ */
+html[dir='rtl'] #videoContainer #mainArtplayerSlot .art-video-player .art-controls,
+#videoContainer[data-art-rtl='1'] #mainArtplayerSlot .art-video-player .art-controls {
+  direction: rtl;
+}
+
+html[dir='rtl'] #videoContainer #mainArtplayerSlot .art-video-player .art-control-time,
+#videoContainer[data-art-rtl='1'] #mainArtplayerSlot .art-video-player .art-control-time {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+html[dir='rtl'] #videoContainer #mainArtplayerSlot .art-video-player .art-settings,
+html[dir='rtl'] #videoContainer #mainArtplayerSlot .art-video-player .art-contextmenus,
+html[dir='rtl'] #videoContainer #mainArtplayerSlot .art-video-player .art-selector-list,
+#videoContainer[data-art-rtl='1'] #mainArtplayerSlot .art-video-player .art-settings,
+#videoContainer[data-art-rtl='1'] #mainArtplayerSlot .art-video-player .art-contextmenus,
+#videoContainer[data-art-rtl='1'] #mainArtplayerSlot .art-video-player .art-selector-list {
+  direction: rtl;
+  text-align: start;
+}
+
+html[dir='rtl'] #videoContainer #mainArtplayerSlot .art-video-player .art-subtitle,
+#videoContainer[data-art-rtl='1'] #mainArtplayerSlot .art-video-player .art-subtitle {
+  direction: rtl;
+}
+
+#videoContainer .ott-preroll-modal {
+  box-sizing: border-box;
+}
+
+/*
+ | In-player ad phase: ads play INSIDE Artplayer (switchUrl).
+ | Hide scrubber + settings / PiP / fullscreen / subtitle so viewer cannot seek or bypass the ad.
+ | Keep play/pause + volume + time usable.
+ */
+#videoContainer.ott-inplayer-ad-phase .art-progress,
+#videoContainer.ott-inplayer-ad-phase .art-control-progress,
+#videoContainer.ott-inplayer-ad-phase .art-setting,
+#videoContainer.ott-inplayer-ad-phase .art-settings,
+#videoContainer.ott-inplayer-ad-phase .art-control-setting,
+#videoContainer.ott-inplayer-ad-phase .art-control-pip,
+#videoContainer.ott-inplayer-ad-phase .art-control-fullscreen,
+#videoContainer.ott-inplayer-ad-phase .art-control-fullscreenWeb,
+#videoContainer.ott-inplayer-ad-phase .art-control-subtitle,
+#videoContainer.ott-inplayer-ad-phase .art-subtitle {
+  display: none !important;
+  pointer-events: none !important;
+}
+
+#videoContainer.ott-inplayer-ad-phase .art-bottom {
+  pointer-events: auto;
+}
+
+/* Hover hint: dim the whole bottom area slightly so the custom Skip button above is prominent. */
+#videoContainer.ott-inplayer-ad-phase .art-bottom::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.45), transparent);
+  pointer-events: none;
+}
+
+.ott-preroll-modal {
+  flex-direction: column;
+  transition: opacity 0.2s ease;
+}
+
+#videoContainer .ott-preroll-content {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.ott-preroll-modal.ott-preroll-loading .ott-preroll-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ott-preroll-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 14px;
+}
+
+.ott-preroll-spinner {
+  width: 42px;
+  height: 42px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ott-preroll-spin 0.75s linear infinite;
+}
+
+@keyframes ott-preroll-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ott-preroll-ad-label {
+  position: absolute;
+  top: 18px;
+  inset-inline-start: 18px;
+  inset-inline-end: auto;
+  z-index: 22;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0.9;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+#videoContainer .ott-preroll-timer {
+  position: absolute;
+  bottom: 20px;
+  inset-inline-end: 20px;
+  inset-inline-start: auto;
+  z-index: 125;
+  color: #fff;
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+html[dir='rtl'] #videoContainer .ott-preroll-timer,
+#videoContainer[data-art-rtl='1'] .ott-preroll-timer {
+  left: 20px;
+  right: auto;
+  inset-inline-end: auto;
+  inset-inline-start: auto;
+}
+
+/* Prefix | digits (always LTR numerals) | unit — inner dir from Blade (rtl/ltr) for correct phrase order */
+#videoContainer .ott-preroll-timer .ott-preroll-timer-inner {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25em;
+  unicode-bidi: isolate;
+}
+
+#videoContainer .ott-preroll-timer .ott-preroll-timer-digits {
+  unicode-bidi: isolate;
+}
+
+#videoContainer .ott-preroll-skip-btn {
+  position: absolute;
+  bottom: 56px;
+  inset-inline-end: 20px;
+  top: auto;
+  inset-inline-start: auto;
+  z-index: 130;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+html[dir='rtl'] #videoContainer .ott-preroll-skip-btn,
+#videoContainer[data-art-rtl='1'] .ott-preroll-skip-btn {
+  left: 20px;
+  right: auto;
+  inset-inline-end: auto;
+  inset-inline-start: auto;
+}
+
+#videoContainer .ott-preroll-skip-btn .ott-preroll-skip-btn-text {
+  unicode-bidi: isolate;
+}
+
+#videoContainer .ott-preroll-content img,
+#videoContainer .ott-preroll-content video {
+  object-fit: cover;
+}
+
+/*
+ | In-player ad UI (mid-roll / pre-roll inside Artplayer) is built with inline styles
+ | by ott-player-ads.js. Artplayer's `.art-video-player { direction: ltr }` prevents
+ | `inset-inline-end` from mirroring, so skip/timer/label stay on the right in Arabic.
+ | Override with physical positioning and `!important` to beat the inline styles.
+ */
+html[dir='rtl'] #videoContainer .ott-inplayer-ad-timer,
+html[dir='rtl'] #videoContainer .ott-inplayer-ad-skip,
+#videoContainer[data-art-rtl='1'] .ott-inplayer-ad-timer,
+#videoContainer[data-art-rtl='1'] .ott-inplayer-ad-skip {
+  left: 20px !important;
+  right: auto !important;
+  inset-inline-end: auto !important;
+  inset-inline-start: auto !important;
+}
+
+html[dir='rtl'] #videoContainer .ott-inplayer-ad-label,
+#videoContainer[data-art-rtl='1'] .ott-inplayer-ad-label {
+  left: auto !important;
+  right: 18px !important;
+  inset-inline-start: auto !important;
+  inset-inline-end: auto !important;
+}

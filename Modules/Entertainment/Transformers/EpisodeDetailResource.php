@@ -99,6 +99,11 @@ class EpisodeDetailResource extends JsonResource
             'poster_image' =>setBaseUrlWithFileName($this->poster_url),
             'language' => optional($this->entertainmentdata)->language,
             'video_links' => $this->EpisodeStreamContentMapping ?? null,
+            'quality_playlist' => video_quality_playlist_from_links(
+                $this->EpisodeStreamContentMapping ?? null,
+                $this->video_url_input,
+                $this->video_upload_type
+            ),
             'plan' => new PlanResource($this->plan),
             'subtitle_info' => $this->enable_subtitle == 1 ? SubtitleResource::collection($this->subtitles) : null,
             'genres' => GenresResource::collection($this->genre_data),

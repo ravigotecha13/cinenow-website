@@ -104,7 +104,7 @@ class GenresController extends Controller
     public function store(GenresRequest $request)
     {
         $data = $request->all();
-        $data['file_url'] = extractFileNameFromUrl($data['file_url']);
+        $data['file_url'] = extractFileNameFromUrl($data['file_url'] ?? '');
 
         $this->genreService->createGenre($data);
         $message = __('messages.create_form_genre', ['form' => 'Genres']);
@@ -127,9 +127,20 @@ class GenresController extends Controller
     public function update(GenresRequest $request, $id)
     {
         $data = $request->all();
-        $data['file_url'] = extractFileNameFromUrl($data['file_url']);
 
-        $genre = $this->genreService->getGenreById($id);
+        $removeImage = isset($data['remove_image']) && (int) $data['remove_image'] === 1;
+        $incomingFileUrl = isset($data['file_url']) ? trim((string) $data['file_url']) : '';
+
+        // A newly-picked image always wins, even if the user pressed × first.
+        if ($incomingFileUrl !== '') {
+            $data['file_url'] = extractFileNameFromUrl($incomingFileUrl);
+        } elseif ($removeImage) {
+            $data['file_url'] = null;
+        } else {
+            unset($data['file_url']);
+        }
+
+        unset($data['remove_image']);
 
         $this->genreService->updateGenre($id, $data);
         $message = __('messages.update_form_genre', ['form' => 'Genres']);

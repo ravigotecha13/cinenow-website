@@ -110,6 +110,11 @@ class MovieDetailDataResourceV2  extends JsonResource
             'reviews' => ReviewResource::collection($this->reviews),
             'three_reviews' => ReviewResource::collection($this->reviews->take(3)),
             'video_links' => $this->entertainmentStreamContentMappings ?? null,
+            'quality_playlist' => video_quality_playlist_from_links(
+                $this->entertainmentStreamContentMappings ?? null,
+                $this->video_url_input ?? null,
+                $this->video_upload_type ?? 'URL'
+            ),
             'subtitle_info' => $this->enable_subtitle == 1 ? SubtitleResource::collection($this->subtitles) : null,
             'casts' => CastCrewListResource::collection($casts),
             'directors' => CastCrewListResource::collection($directors),

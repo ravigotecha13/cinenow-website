@@ -3,7 +3,7 @@
 namespace Modules\CastCrew\Transformers;
 
 use Illuminate\Http\Resources\Json\JsonResource;
-use Modules\CastCrew\Support\CastCrewAutoTranslator;
+use Modules\CastCrew\Support\CastCrewLocale;
 
 class CastCrewListResource extends JsonResource
 {
@@ -18,12 +18,14 @@ class CastCrewListResource extends JsonResource
 
         return [
             'id' => $this->id,
-            'name' => CastCrewAutoTranslator::translate($this->name),
+            'name' => CastCrewLocale::name($this->resource),
+            'name_en' => $this->name_en ?? $this->name,
+            'name_ar' => $this->name_ar,
             'type' => 'castcrew',
-            'bio' => CastCrewAutoTranslator::translate($this->bio),
-            'place_of_birth' => CastCrewAutoTranslator::translate($this->place_of_birth),
+            'bio' => CastCrewLocale::bio($this->resource),
+            'place_of_birth' => CastCrewLocale::placeOfBirth($this->resource),
             'dob' => $this->dob,
-            'designation' => CastCrewAutoTranslator::translate($this->designation),
+            'designation' => CastCrewLocale::designation($this->resource),
             'profile_image' => setBaseUrlWithFileName($this->file_url),
         ];
     }

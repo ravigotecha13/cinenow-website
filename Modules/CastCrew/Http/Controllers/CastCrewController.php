@@ -204,12 +204,24 @@ class CastCrewController extends Controller
     }
 
 
-    public function update(Request $request, $id)
+    public function update(CastCrewRequest $request, $id)
     {
         $data = $request->all();
-        $data['file_url'] = extractFileNameFromUrl($data['file_url']);
-
         $castcrew = $this->castcrewService->getById($id);
+
+        $removeImage = isset($data['remove_image']) && (int) $data['remove_image'] === 1;
+        $incomingFileUrl = isset($data['file_url']) ? trim((string) $data['file_url']) : '';
+
+        if ($removeImage) {
+            $data['file_url'] = null;
+        } elseif ($incomingFileUrl === '') {
+            // Keep DB value when the form sends no URL (e.g. hidden field cleared by JS) unless user explicitly removed the image.
+            $data['file_url'] = $castcrew->getRawOriginal('file_url');
+        } else {
+            $data['file_url'] = extractFileNameFromUrl($incomingFileUrl);
+        }
+
+        unset($data['remove_image']);
 
         $this->castcrewService->update($id, $data);
 

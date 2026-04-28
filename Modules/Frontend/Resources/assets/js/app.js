@@ -161,9 +161,9 @@ function slickGeneral(isRTL) {
     });
 }
 
-// banner slider (hero with pre-roll ads is initialized in banner.blade.php — skip .js-banner-custom-ads)
+// banner slider (hero poster/trailer sequence is initialized in banner.blade.php — skip .js-hero-banner)
 function slickBanner(isRTL) {
-    jQuery('.slick-banner').not('.js-banner-custom-ads').each(function () {
+    jQuery('.slick-banner').not('.js-hero-banner').each(function () {
         let bannerSlider = jQuery(this);
         let slideSpacing = bannerSlider.data("spacing");
 

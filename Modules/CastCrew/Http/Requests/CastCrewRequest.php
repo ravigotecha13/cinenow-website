@@ -15,12 +15,16 @@ class CastCrewRequest extends FormRequest
     {
 
         $rules = [
-            'name' => ['required'],
-            'bio' => ['required'],
+            'name_en' => ['required', 'string', 'max:255'],
+            'name_ar' => ['required', 'string', 'max:255'],
+            'bio_en' => ['required', 'string'],
+            'bio_ar' => ['required', 'string'],
+            'place_of_birth_en' => ['required', 'string', 'max:255'],
+            'place_of_birth_ar' => ['required', 'string', 'max:255'],
+            'designation_en' => ['nullable', 'string', 'max:255'],
+            'designation_ar' => ['nullable', 'string', 'max:255'],
             'type' => ['required'],
             'dob' => ['required'],
-            'place_of_birth' => ['required'],
-        
         ];
 
         return $rules;
@@ -35,12 +39,14 @@ class CastCrewRequest extends FormRequest
     public function messages()
     {
         return [
-            'name.required' => 'Name is required.',
-            'bio.required' =>'Bio is required',
-            'type.required' =>'Type is required',
-            'dob.required' =>'Date Of Birth is required',
-            'place_of_birth.required'=>'Place Of Birth required'
-
+            'name_en.required' => 'English name is required.',
+            'name_ar.required' => 'Arabic name is required.',
+            'bio_en.required' => 'English bio is required.',
+            'bio_ar.required' => 'Arabic bio is required.',
+            'place_of_birth_en.required' => 'English place of birth is required.',
+            'place_of_birth_ar.required' => 'Arabic place of birth is required.',
+            'type.required' => 'Type is required.',
+            'dob.required' => 'Date of birth is required.',
         ];
     }
 }

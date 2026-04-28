@@ -1,9 +1,30 @@
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick.css"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/slick-carousel@1.8.1/slick/slick-theme.css"/>
+{{-- Font Awesome + Slick CSS are already loaded globally (layouts/header.blade.php
+     and components/partials/head/plugins.blade.php). Loading them again here
+     was 3 extra render-blocking requests on every page that uses the banner.  --}}
 
 
 <style>
+/* Edge-to-edge hero: break out of any centered/max-width ancestor */
+#banner-section,
+#movies-page-banner {
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: 0;
+    padding-right: 0;
+    box-sizing: border-box;
+}
+
+#banner-section .js-hero-banner,
+#movies-page-banner .js-hero-banner {
+    display: block;
+    width: 100%;
+    max-width: none;
+}
+
+/* Never force width on .slick-track / .slick-slide — Slick sets pixel widths; overriding breaks the carousel */
+
 .unmute-btn {
     position: absolute;
     bottom: 25px;
@@ -94,7 +115,6 @@
     position: relative;
     z-index: 3 !important;
     isolation: isolate;
-    margin-inline-start: 15px !important;
     margin-inline-end: 15px !important;
 }
 
@@ -162,28 +182,10 @@ html[dir="rtl"] .slick-item .movie-content::before {
 .slick-item .movie-content,
 .slick-item .play-now-btn,
 .slick-item .watch-list-btn,
-.slick-item .banner-ad-overlay,
 .unmute-btn,
 .slick-prev,
 .slick-next {
     pointer-events: auto !important;
-}
-
-.slick-item .banner-ad-overlay {
-    z-index: 12;
-    pointer-events: auto !important;
-}
-
-/* Keep title/content visible, but hide slide media while pre-roll ad is active */
-.slick-item.ad-playing .banner-trailer-video,
-.slick-item.ad-playing img.banner-poster {
-    opacity: 0 !important;
-    visibility: hidden !important;
-}
-
-/* Keep movie meta/title above ad overlay while ad plays */
-.slick-item.ad-playing .movie-content {
-    z-index: 13 !important;
 }
 
 /* Keep hero text area same compact width as original design */
@@ -252,7 +254,29 @@ html[dir="rtl"] .slick-item .movie-content::before {
 
 </style>
 
-<div class="slick-banner main-banner js-banner-custom-ads"
+@php
+    /* Preload the very first hero poster: gives a big LCP win without
+       needing a @push('head') (Blade stacks rendered in <head> don't see
+       pushes from content sections). This <link> MUST live outside the
+       .slick-banner container — Slick treats every direct child as a
+       slide, so an extra <link> there produces a phantom blank slide. */
+    $__firstHeroPoster = null;
+    foreach (($data ?? []) as $__sliderForHint) {
+        if (empty($__sliderForHint['data'])) continue;
+        $__itemForHint = $__sliderForHint['data']->toArray(request());
+        $__firstHeroPoster = $__itemForHint['thumbnail_image']
+            ?? $__itemForHint['thumbnail_url']
+            ?? $__itemForHint['poster_image']
+            ?? $__itemForHint['poster_url']
+            ?? null;
+        if (!empty($__firstHeroPoster)) break;
+    }
+    $__heroIndex = 0;
+@endphp
+@if(!empty($__firstHeroPoster))
+    <link rel="preload" as="image" href="{{ setBaseUrlWithFileName($__firstHeroPoster) }}" fetchpriority="high">
+@endif
+<div class="slick-banner main-banner js-hero-banner"
      data-speed="100"
      data-autoplay="true"
      data-center="false"
@@ -272,6 +296,7 @@ html[dir="rtl"] .slick-item .movie-content::before {
                 $displayDescription = app()->getLocale() === 'ar'
                     ? ($item['description_ar'] ?? $item['description'] ?? '')
                     : ($item['description'] ?? '');
+                $isFirstHero = ($__heroIndex === 0);
             @endphp
 
             @if(isenablemodule($slider['type']) == 1)
@@ -284,23 +309,32 @@ html[dir="rtl"] .slick-item .movie-content::before {
                         (($item['type'] ?? '') == 'tvshow' ? route('tvshow-details', ['id' => $item['id']]) :
                         route('movie-details', ['id' => $item['id']])))
                      }}">
-                    
-                    {{-- Poster Image (initially visible) --}}
+
+                    {{-- Poster Image (initially visible).
+                         All posters are eagerly loaded because Slick positions
+                         non-active slides via CSS transforms; browsers do NOT
+                         load `loading="lazy"` images on transform-offscreen
+                         slides, so lazy here produces blank slides 2+. The
+                         first poster still gets fetchpriority=high for LCP. --}}
                     @if(!empty($poster))
                         <img class="w-100 h-100 position-absolute top-0 start-0 banner-poster"
                              style="object-fit: cover; z-index:1;"
                              src="{{ setBaseUrlWithFileName($poster) }}"
-                             alt="Poster Image">
+                             alt="Poster Image"
+                             decoding="async"
+                             @if($isFirstHero) fetchpriority="high" @endif>
                     @endif
 
-                    {{-- 🎥 Trailer Video (playback controlled by JS: banner ad → poster → trailer) --}}
+                    {{-- 🎥 Trailer Video: preload='none' — JS swaps it in after the poster delay.
+                         preload='metadata' was eagerly pulling the first bytes of every trailer
+                         on page load, hurting Speed Index. --}}
                     @if(!empty($trailer))
                         <video class="w-100 h-100 position-absolute top-0 start-0 banner-trailer-video"
                                style="object-fit: cover; display: none;"
                                muted
                                playsinline
-                               preload="metadata">
-                            <source src="{{ setBaseUrlWithFileName($trailer) }}" type="video/mp4">
+                               preload="none"
+                               data-src="{{ setBaseUrlWithFileName($trailer) }}">
                         </video>
                     @endif
 
@@ -317,7 +351,12 @@ html[dir="rtl"] .slick-item .movie-content::before {
                                         <div class="movie-tag mb-3">
                                             <ul class="list-inline m-0 p-0 d-flex align-items-center flex-wrap movie-tag-list">
                                                 @foreach($item['genres'] ?? [] as $genre)
-                                                    <li><a href="#" class="tag">{{ $genre['name'] }}</a></li>
+                                                    @php
+                                                        $tagName = app()->getLocale() === 'ar'
+                                                            ? ($genre['name_ar'] ?? $genre['name_en'] ?? $genre['name'] ?? '')
+                                                            : ($genre['name_en'] ?? $genre['name'] ?? '');
+                                                    @endphp
+                                                    <li><a href="#" class="tag">{{ $tagName }}</a></li>
                                                 @endforeach
                                             </ul>
                                         </div>
@@ -377,9 +416,9 @@ html[dir="rtl"] .slick-item .movie-content::before {
                                                         (($item['type'] ?? '') == 'tvshow' ? route('tvshow-details', ['id' => $item['id']]) :
                                                         route('movie-details', ['id' => $item['id']])))
                                                     }}" class="btn btn-primary play-now-btn">
-                                                        <span class="d-flex align-items-center justify-content-center gap-2">
-                                                            {{ __('frontend.get_ticket') }}
-                                                            {{ Currency::format($price - $price * (($item['discount'] ?? 0) / 100), 2) }}
+                                                        <span class="d-flex align-items-center justify-content-center gap-2 flex-wrap">
+                                                            <span dir="auto">{{ __('frontend.get_ticket') }}</span>
+                                                            <bdi dir="ltr" class="text-nowrap">{{ Currency::format($price - $price * (($item['discount'] ?? 0) / 100), 2) }}</bdi>
                                                         </span>
                                                     </a>
                                                 </div>
@@ -395,6 +434,7 @@ html[dir="rtl"] .slick-item .movie-content::before {
                     </div>
                 <div class="banner-bottom-fade"></div>
                 </div>
+                @php $__heroIndex++; @endphp
             @endif
         @endif
     @endforeach
@@ -402,317 +442,13 @@ html[dir="rtl"] .slick-item .movie-content::before {
 </div>
 
 @push('after-scripts')
-<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    const slickBanner = $('.js-banner-custom-ads');
+    const slickBanner = $('.js-hero-banner');
     if (!slickBanner.length) return;
-    if (slickBanner.data('customAdsInit') === true) return;
-    slickBanner.data('customAdsInit', true);
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    const FETCH_TIMEOUT_MS = 10000;
-
-    /** API returns full URL for local media (setBaseUrlWithFileName); do not prefix baseUrl again */
-    function resolveCustomAdMediaUrl(media, baseUrl) {
-        var m = (media == null) ? '' : String(media).trim();
-        if (!m) return '';
-        if (/^https?:\/\//i.test(m) || m.startsWith('data:') || m.startsWith('blob:')) return m;
-        if (m.startsWith('//')) return (window.location && window.location.protocol ? window.location.protocol : 'https:') + m;
-        var b = (baseUrl || '').replace(/\/$/, '');
-        return m.startsWith('/') ? b + m : b + '/' + m.replace(/^\/+/, '');
-    }
-
-    function normalizeContentType(rawType) {
-        var t = (rawType || '').toString().trim().toLowerCase();
-        if (t === 'tv_show') return 'tvshow';
-        return t;
-    }
-
-    async function fetchJsonWithTimeout(url, options, timeoutMs) {
-        if (!window.fetch) return null;
-        var controller = new AbortController();
-        var timer = setTimeout(function () { controller.abort(); }, timeoutMs);
-        try {
-            var res = await fetch(url, Object.assign({}, options || {}, { signal: controller.signal }));
-            if (!res.ok) return null;
-            return await res.json();
-        } catch (e) {
-            return null;
-        } finally {
-            clearTimeout(timer);
-        }
-    }
-
-    function clearSlideBannerAd(slide) {
-        if (!slide) return;
-        if (typeof slide._clearBannerAd === 'function') {
-            slide._clearBannerAd();
-            slide._clearBannerAd = null;
-        }
-        slide.querySelectorAll('.banner-ad-overlay').forEach(function (n) { n.remove(); });
-    }
-
-    function parseTargetIds(raw) {
-        if (Array.isArray(raw)) {
-            return raw.map(function (v) { return Number(v); }).filter(Number.isFinite);
-        }
-        if (typeof raw === 'string') {
-            try {
-                var parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) {
-                    return parsed.map(function (v) { return Number(v); }).filter(Number.isFinite);
-                }
-            } catch (e) {
-                return [];
-            }
-        }
-        return [];
-    }
-
-    function pickPrerollAd(rows, placementPrefs, contentId) {
-        var prefs = (placementPrefs || []).map(function (p) { return (p || '').toString().toLowerCase(); });
-        var cid = Number(contentId);
-        var list = (rows || []).filter(function (item) {
-            if (!item || item.status != 1) return false;
-            if (!item.media) return false;
-            var pl = (item.placement || '').toString().toLowerCase();
-            return prefs.indexOf(pl) !== -1;
-        });
-
-        if (!list.length) return null;
-
-        list.sort(function (a, b) {
-            var pA = prefs.indexOf((a.placement || '').toString().toLowerCase());
-            var pB = prefs.indexOf((b.placement || '').toString().toLowerCase());
-            if (pA !== pB) return pA - pB;
-
-            var idsA = parseTargetIds(a.target_categories);
-            var idsB = parseTargetIds(b.target_categories);
-            var exactA = Number.isFinite(cid) ? idsA.indexOf(cid) !== -1 : false;
-            var exactB = Number.isFinite(cid) ? idsB.indexOf(cid) !== -1 : false;
-            if (exactA !== exactB) return exactB - exactA;
-
-            return Number(b.id || 0) - Number(a.id || 0);
-        });
-
-        return list[0] || null;
-    }
-
-    /**
-     * Custom ad with placement "banner" for this slide’s content — plays before poster + trailer.
-     */
-    function playBannerSlideAd(slide) {
-        return new Promise(function (resolve) {
-            const contentId = slide?.dataset?.contentId;
-            const contentType = normalizeContentType(slide?.dataset?.contentType);
-            if (!contentId || !contentType) {
-                resolve();
-                return;
-            }
-
-            const baseUrl = window.location.origin || document.querySelector('meta[name="baseUrl"]')?.getAttribute('content') || '';
-            const url = baseUrl + '/api/custom-ads/get-active?content_id=' + encodeURIComponent(contentId) + '&type=' + encodeURIComponent(contentType);
-
-            fetchJsonWithTimeout(url, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                credentials: 'include'
-            }, FETCH_TIMEOUT_MS)
-                .then(function (json) {
-                    if (!json || json.success === false) {
-                        resolve();
-                        return;
-                    }
-                    var rows = Array.isArray(json.data) ? json.data : (json.data && Array.isArray(json.data.data) ? json.data.data : []);
-                    if (!Array.isArray(rows) || rows.length === 0) {
-                        resolve();
-                        return;
-                    }
-
-                    // Hero slider priority from admin placements
-                    var ad = pickPrerollAd(rows, ['banner', 'player', 'home_page'], contentId);
-                    if (!ad) {
-                        resolve();
-                        return;
-                    }
-
-                    var overlay = document.createElement('div');
-                    overlay.className = 'banner-ad-overlay position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center';
-                    // Hide poster/video while ad is active, keep text content visible
-                    overlay.style.background = 'rgba(0,0,0,0.88)';
-
-                    var contentEl = document.createElement('div');
-                    contentEl.style.cssText = 'width:100%;height:100%;position:relative;display:flex;align-items:center;justify-content:center;';
-
-                    var closeBtn = document.createElement('button');
-                    closeBtn.type = 'button';
-                    closeBtn.textContent = 'Skip Ad';
-                    closeBtn.style.cssText = 'position:absolute;top:20px;right:20px;z-index:21;background:rgba(0,0,0,0.5);color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;display:none;';
-
-                    var timerDiv = document.createElement('div');
-                    timerDiv.style.cssText = 'position:absolute;bottom:20px;right:20px;z-index:21;color:white;font-size:14px;background:rgba(0,0,0,0.5);padding:4px 8px;border-radius:4px;display:none;';
-                    var timeSpan = document.createElement('span');
-                    timerDiv.appendChild(document.createTextNode('Ad: '));
-                    timerDiv.appendChild(timeSpan);
-
-                    overlay.appendChild(contentEl);
-                    overlay.appendChild(closeBtn);
-                    overlay.appendChild(timerDiv);
-                    slide.classList.add('ad-playing');
-                    slide.appendChild(overlay);
-
-                    var adFinished = false;
-                    var timers = [];
-                    slide._bannerAdSafetyTimer = setTimeout(function () { finishAd(); }, 4 * 60 * 1000);
-
-                    function cleanup() {
-                        timers.forEach(function (t) { clearInterval(t); });
-                        timers = [];
-                        clearTimeout(slide._bannerAdSkipTimer);
-                        slide._bannerAdSkipTimer = null;
-                        clearTimeout(slide._bannerAdSafetyTimer);
-                        slide._bannerAdSafetyTimer = null;
-                    }
-
-                    function finishAd() {
-                        if (adFinished) return;
-                        adFinished = true;
-                        cleanup();
-                        slide._clearBannerAd = null;
-                        slide.classList.remove('ad-playing');
-                        overlay.remove();
-                        resolve();
-                    }
-
-                    slide._clearBannerAd = function () {
-                        if (adFinished) return;
-                        adFinished = true;
-                        cleanup();
-                        slide.classList.remove('ad-playing');
-                        overlay.remove();
-                        resolve();
-                    };
-
-                    closeBtn.onclick = finishAd;
-
-                    var skipAfter = Number(ad.skip_after);
-                    if (skipAfter > 0) {
-                        slide._bannerAdSkipTimer = setTimeout(function () {
-                            if (!adFinished) closeBtn.style.display = 'block';
-                        }, skipAfter * 1000);
-                    } else if (skipAfter === 0) {
-                        closeBtn.style.display = 'block';
-                    }
-
-                    var adType = (ad.type || '').toString().toLowerCase();
-                    if (adType === 'image') {
-                        var duration = Number(ad.duration) || 10;
-                        var imgSrc = resolveCustomAdMediaUrl(ad.media, baseUrl);
-                        var imgHtml = '<img src="' + imgSrc.replace(/"/g, '&quot;') + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain;">';
-                        if (ad.redirect_url) {
-                            imgHtml = '<a href="' + String(ad.redirect_url).replace(/"/g, '&quot;') + '" target="_blank" rel="noopener">' + imgHtml + '</a>';
-                        }
-                        contentEl.innerHTML = imgHtml;
-
-                        var timeLeft = duration;
-                        timerDiv.style.display = 'block';
-                        timeSpan.textContent = timeLeft + 's';
-                        var tick = setInterval(function () {
-                            if (adFinished) {
-                                clearInterval(tick);
-                                return;
-                            }
-                            timeLeft--;
-                            timeSpan.textContent = timeLeft + 's';
-                            if (timeLeft <= 0) {
-                                clearInterval(tick);
-                                finishAd();
-                            }
-                        }, 1000);
-                        timers.push(tick);
-                    } else if (adType === 'video') {
-                        var isYouTube = /youtu\.?be/.test(ad.media || '');
-                        if (isYouTube) {
-                            var videoId = '';
-                            var ytMatch = String(ad.media).match(/(?:youtu\.be\/|youtube\.com.*(?:v=|\/embed\/|\/v\/|\/shorts\/))([a-zA-Z0-9_-]{11})/);
-                            if (ytMatch && ytMatch[1]) videoId = ytMatch[1];
-                            if (videoId) {
-                                contentEl.innerHTML = '<iframe width="100%" height="100%" src="https://www.youtube.com/embed/' + videoId + '?autoplay=1&mute=0&controls=0&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
-                                var yDur = Number(ad.duration) || 30;
-                                var yLeft = yDur;
-                                timerDiv.style.display = 'block';
-                                timeSpan.textContent = yLeft + 's';
-                                var yTick = setInterval(function () {
-                                    if (adFinished) {
-                                        clearInterval(yTick);
-                                        return;
-                                    }
-                                    yLeft--;
-                                    timeSpan.textContent = yLeft + 's';
-                                    if (yLeft <= 0) {
-                                        clearInterval(yTick);
-                                        finishAd();
-                                    }
-                                }, 1000);
-                                timers.push(yTick);
-                            } else {
-                                finishAd();
-                            }
-                        } else {
-                            var videoUrl = resolveCustomAdMediaUrl(ad.media, baseUrl);
-                            var isHls = videoUrl.indexOf('.m3u8') !== -1;
-                            var videoEl = document.createElement('video');
-                            videoEl.style.width = '100%';
-                            videoEl.style.height = '100%';
-                            videoEl.autoplay = true;
-                            videoEl.muted = true;
-                            videoEl.controls = false;
-                            videoEl.playsInline = true;
-                            if (ad.redirect_url) {
-                                videoEl.style.cursor = 'pointer';
-                                videoEl.onclick = function () { window.open(ad.redirect_url, '_blank'); };
-                            }
-                            contentEl.appendChild(videoEl);
-
-                            var hls = null;
-                            if (isHls && window.Hls && window.Hls.isSupported()) {
-                                var hls = new window.Hls();
-                                hls.loadSource(videoUrl);
-                                hls.attachMedia(videoEl);
-                            } else {
-                                videoEl.src = videoUrl;
-                            }
-                            videoEl.play().catch(function () { finishAd(); });
-                            videoEl.onended = finishAd;
-                            videoEl.onerror = function () { finishAd(); };
-                            if (hls) {
-                                var prevCleanup = cleanup;
-                                cleanup = function () {
-                                    prevCleanup();
-                                    try { hls.destroy(); } catch (e) {}
-                                };
-                            }
-                            videoEl.ontimeupdate = function () {
-                                if (videoEl.duration) {
-                                    timerDiv.style.display = 'block';
-                                    timeSpan.textContent = Math.ceil(videoEl.duration - videoEl.currentTime) + 's';
-                                }
-                            };
-                        }
-                    } else {
-                        finishAd();
-                    }
-                })
-                .catch(function () {
-                    resolve();
-                });
-        });
-    }
+    if (slickBanner.data('heroBannerInit') === true) return;
+    slickBanner.data('heroBannerInit', true);
 
     slickBanner.on('init', function (event, slick) {
 
@@ -724,7 +460,6 @@ document.addEventListener('DOMContentLoaded', function () {
         let currentSlide = slick.currentSlide || 0;
         let isMuted = true;
         let posterTimer = null;
-        let sequenceSlide = null;
 
         /* ===========================
            GLOBAL MUTE / UNMUTE BUTTON
@@ -761,7 +496,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         /* ===========================
-           POSTER → VIDEO → NEXT SLIDE (after optional banner ad)
+           POSTER → VIDEO → NEXT SLIDE
         ============================ */
         function startPosterThenTrailer(slide) {
             clearTimeout(posterTimer);
@@ -792,6 +527,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     setTimeout(() => { poster.style.display = 'none'; }, 1000);
                 }
 
+                // Lazy-inject the <source> only now, so we skip initial-page network work.
+                if (!video.dataset.srcInjected && video.dataset.src) {
+                    const source = document.createElement('source');
+                    source.src = video.dataset.src;
+                    source.type = 'video/mp4';
+                    video.appendChild(source);
+                    video.dataset.srcInjected = '1';
+                    try { video.load(); } catch (e) {}
+                }
+
                 video.style.display = 'block';
                 video.muted = isMuted;
                 video.play().catch(() => {});
@@ -805,14 +550,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         function showPosterThenVideo(slide) {
             clearTimeout(posterTimer);
-            sequenceSlide = slide;
-
-            slides.forEach(function (s) { clearSlideBannerAd(s); });
-
-            playBannerSlideAd(slide).then(function () {
-                if (sequenceSlide !== slide) return;
-                startPosterThenTrailer(slide);
-            });
+            startPosterThenTrailer(slide);
         }
 
         /* ===========================
@@ -823,8 +561,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         slickBanner.on('beforeChange', function (e, slick, current) {
             clearTimeout(posterTimer);
-            sequenceSlide = null;
-            slides.forEach(function (s) { clearSlideBannerAd(s); });
             const v = slides[current]?.querySelector('video');
             if (v) {
                 v.pause();

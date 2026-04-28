@@ -9,6 +9,7 @@ use Modules\Subscriptions\Models\Plan;
 use Modules\Entertainment\Models\Watchlist;
 use Modules\Entertainment\Models\Entertainment;
 use Modules\Entertainment\Support\EntertainmentLocale;
+use Modules\Genres\Support\GenreLocale;
 
 class MoviesResource extends JsonResource
 {
@@ -22,10 +23,12 @@ class MoviesResource extends JsonResource
         if(!empty($genres)){
 
             foreach($genres as $genre) {
-
+                $g = $genre->genre;
                 $genre_data[] = [
                     'id' => $genre->id,
-                    'name' => $genre->genre->name ?? null,
+                    'name' => $g ? (GenreLocale::name($g) ?? $g->name) : null,
+                    'name_en' => $g ? ($g->name_en ?? $g->name ?? null) : null,
+                    'name_ar' => $g ? ($g->name_ar ?? null) : null,
                 ];
             }
 

@@ -2,6 +2,30 @@
   object-fit: cover;
 }
 
+/* Fixed header clearance for list/grid titles (matches layout header ~ height) */
+:root {
+  --cinenow-header-offset: 4.5rem;
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --cinenow-header-offset: 5rem;
+  }
+}
+
+/*
+ * Clear fixed header under main — only when .list-page is the first *block* in <main>
+ * (no #movies-page-banner / hero above). Uses :first-of-type so leading whitespace text
+ * nodes from Blade do not break matching (they break :first-child).
+ */
+main.flex-fill > .list-page,
+main.flex-fill > .list-page:first-of-type > .page-title,
+main.flex-fill > .list-page:first-of-type > .movie-lists > .container-fluid > h4:first-of-type,
+main.flex-fill > .list-page:first-of-type > .movie-list > .container-fluid > h4:first-of-type,
+main.flex-fill > .list-page:first-of-type > .container-fluid:first-of-type {
+  margin-top: calc(var(--cinenow-header-offset) + 1.25rem);
+}
+
 .container-fluid {
   padding: 0 6.25em;
 }

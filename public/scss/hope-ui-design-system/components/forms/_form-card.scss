@@ -61,6 +61,7 @@
     text-align: center;
     z-index: 99;
     width: 100px;
+    pointer-events: none;
     .remove-media-icon {
         position: absolute;
         top: .3rem;
@@ -74,9 +75,13 @@
         line-height: 20px;
         text-align: center;
         font-size: 1.3rem !important;
+        pointer-events: auto;
+        cursor: pointer;
     }
-    img {
+    img,
+    video {
         width: 100%;
         object-fit: cover;
+        pointer-events: none;
     }
 }

@@ -10,16 +10,16 @@
 
         @if ($continue_watch === true)
             @include('frontend::components.section.thumbnail', [
-    'data' => $data, // pass the full array
-    'content_type' => 'movie',
-])
-
+                'data' => $data,
+                'content_type' => 'movie',
+                'use_entertainment_trailer_only' => true,
+            ])
         @else
-           @include('frontend::components.section.thumbnail', [
-    'data' => $data, // pass the full array
-    'content_type' => 'movie',
-])
-
+            @include('frontend::components.section.thumbnail', [
+                'data' => $data,
+                'content_type' => 'movie',
+                'use_entertainment_trailer_only' => true,
+            ])
         @endif
     </div>
 

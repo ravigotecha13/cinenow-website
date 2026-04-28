@@ -15,80 +15,43 @@
 
     @include('frontend::layouts.head')
 
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;1,100;1,300&amp;display=swap" rel="stylesheet">
+    {{-- Speed: preconnect to 3rd-party origins the page hits --}}
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://www.google.com">
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    {{-- Fonts (async, non-blocking). Fallback for clients without JS. --}}
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;1,100;1,300&amp;display=swap"
+          media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;1,100;1,300&amp;display=swap"></noscript>
+
+    {{-- Flatpickr is not needed above-the-fold on most pages: load it async. --}}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css"></noscript>
+
     <link rel="stylesheet" href="{{ asset('modules/frontend/style.css') }}">
     <link rel="stylesheet" href="{{ asset('css/customizer.css') }}">
 
     <link rel="stylesheet" href="{{ asset('iconly/css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('phosphor-icons/regular/style.css') }}">
-    <link rel="stylesheet" href="{{ asset('phosphor-icons/fill/style.css') }}">
+    {{-- Filled icon set is rarely above-the-fold – async load it. --}}
+    <link rel="stylesheet" href="{{ asset('phosphor-icons/fill/style.css') }}" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="{{ asset('phosphor-icons/fill/style.css') }}"></noscript>
 
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    {{-- SweetAlert2 is only used for session popups + PPV confirmations: defer it. --}}
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
 
-    {{-- Google Translate: allow translating DB content when Arabic fields are missing.
-         We still protect any already-Arabic text by adding the `notranslate` class via JS (see protectArabicText()). --}}
     <script>
-        function setArabicCookie() {
-            document.cookie = "googtrans=/en/ar; path=/;";
-            document.cookie = "googtrans=/en/ar; path=/; domain=." + window.location.hostname + ";";
-        }
-        function clearTranslateCookie() {
-            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=." + window.location.hostname + ";";
-        }
-    </script>
-
-    @php
-        $shouldTranslateToArabic = (app()->getLocale() === 'ar') || (session()->get('dir') == 'rtl');
-    @endphp
-
-    @if($shouldTranslateToArabic)
-        <script>setArabicCookie();</script>
-    @else
-        <script>clearTranslateCookie();</script>
-    @endif
-
-    @if($shouldTranslateToArabic)
-        <script>
-            (function() {
-                if (document.cookie.indexOf('googtrans=/en/ar') > -1) {
-                    document.documentElement.classList.add('force-hide-rtl');
-                    document.documentElement.setAttribute('dir', 'rtl');
-                }
-            })();
-        </script>
-        <script>
-            function googleTranslateElementInit() {
-                new google.translate.TranslateElement({
-                    pageLanguage: 'en',
-                    includedLanguages: 'ar',
-                    autoDisplay: false
-                }, 'google_translate_element');
+        document.addEventListener("DOMContentLoaded", function() {
+            if (document.documentElement.dir === 'rtl') {
+                document.body.classList.add('translation-loaded');
             }
-
-            document.addEventListener("DOMContentLoaded", function() {
-                if (document.documentElement.dir === 'rtl' || document.documentElement.classList.contains('force-hide-rtl')) {
-                    const showContent = () => {
-                        document.body.classList.add('translation-loaded');
-                        document.documentElement.classList.remove('force-hide-rtl');
-                    };
-                    showContent();
-                }
-            });
-        </script>
-        <script async src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-    @else
-        <script>
-            document.addEventListener("DOMContentLoaded", function() {
-                if (document.documentElement.dir === 'rtl') {
-                    document.body.classList.add('translation-loaded');
-                }
-            });
-        </script>
-    @endif
+        });
+    </script>
 
     @include('frontend::components.partials.head.plugins')
     @stack('after-styles')
@@ -261,14 +224,11 @@
             box-shadow: none !important;
             border: none !important;
         }
-        
-        *[style*="box-shadow"] {
-            box-shadow: none !important;
-        }
-        *[style*="background"] {
-            background: transparent !important;
-        }
-        
+
+        /* Do NOT use global *[style*="background"] / box-shadow — it strips inline styles
+           across the whole page (header nav, gradients, payment UI). Scoped rules above
+           are enough for Google Translate highlights. */
+
         /* Disable Google Translate hover blue highlight */
         .VIpgJd-yAWNEb-VIpgJd-fmcmS-sn54Q,
         .VIpgJd-yAWNEb-VIpgJd-fmcmS-sn54Q * {
@@ -289,7 +249,10 @@
 
 </head>
 
-<body class="d-flex flex-column min-vh-100 {{ Route::currentRouteName() == 'search' ? 'search-page' : '' }}" style="background-color: #000000 !important;">
+@php
+    $flushMainTopRoutes = ['user.login', 'movies', 'movies.language', 'movies.genre', 'movie-details'];
+@endphp
+<body class="min-vh-100 @if(in_array(Route::currentRouteName(), $flushMainTopRoutes, true)) page-main-flush-top @endif {{ Route::currentRouteName() == 'search' ? 'search-page' : '' }}" style="background-color: #000000 !important;">
     @include('frontend::layouts.header')
 
     <main class="flex-fill">
@@ -382,12 +345,11 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 @endif
 
-    <script src="{{ mix('modules/frontend/script.js') }}"></script>
-    <script src="{{ mix('js/backend-custom.js') }}"></script>
+    <script src="{{ mix('modules/frontend/script.js') }}" defer></script>
+    <script src="{{ mix('js/backend-custom.js') }}" defer></script>
 
-    <!--- chrome cast  --->
-    <script type="text/javascript" src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-    <script type="text/javascript" src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js"></script>
+    <!--- chrome cast (only needed on pages that actually cast) --->
+    <script type="text/javascript" src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" defer></script>
     <script src="{{ asset('js/script.js') }}" defer></script>
     {{-- Vite JS --}}
     {{-- {{ module_vite('build-frontend', 'resources/assets/js/app.js') }} --}}
@@ -421,6 +383,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <script>
     window.addEventListener('scroll', function() {
         const header = document.querySelector('header');
+        if (!header) {
+            return;
+        }
         if (window.scrollY > 80) {
             header.classList.add('scrolled');
         } else {
@@ -507,23 +472,39 @@ window.addEventListener("load", function () {
 });
 </script>
 <script>
-// Remove highlight Google adds later
-function removeGoogleHighlights() {
-    document.querySelectorAll('.goog-text-highlight, .goog-texthighlight')
-        .forEach(el => {
-            el.classList.remove('goog-text-highlight', 'goog-texthighlight');
+// Clean Google Translate leftovers on DOM mutations instead of a 300ms polling
+// loop. The old setInterval kept running forever and tanked Speed Index.
+(function () {
+    const GOOG_HIGHLIGHT_RE = /\b(goog-text-highlight|goog-texthighlight)\b/;
+    const GOOG_EXTRA_SEL = '.gt-cc, [data-gt-bubble], [data-language-for-alternatives]';
+
+    function cleanup(root) {
+        if (!root || root.nodeType !== 1) return;
+        if (GOOG_HIGHLIGHT_RE.test(root.className || '')) {
+            root.classList.remove('goog-text-highlight', 'goog-texthighlight');
+        }
+        root.querySelectorAll && root.querySelectorAll('.goog-text-highlight, .goog-texthighlight')
+            .forEach(el => el.classList.remove('goog-text-highlight', 'goog-texthighlight'));
+        root.querySelectorAll && root.querySelectorAll(GOOG_EXTRA_SEL).forEach(el => el.remove());
+    }
+
+    const start = () => {
+        cleanup(document.body);
+        const mo = new MutationObserver(muts => {
+            for (const m of muts) {
+                m.addedNodes && m.addedNodes.forEach(cleanup);
+                if (m.type === 'attributes' && m.target) cleanup(m.target);
+            }
         });
-}
+        mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    };
 
-// Keep removing every 500ms because Google keeps adding it
-setInterval(removeGoogleHighlights, 300);
-
-setInterval(() => {
-    document.querySelectorAll('.gt-cc, [data-gt-bubble], [data-language-for-alternatives]').forEach(el => {
-        el.remove();
-    });
-}, 300);
-
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start, { once: true });
+    } else {
+        start();
+    }
+})();
 
 document.addEventListener("mouseup", (e) => {
     if (window.getSelection().toString().length > 0) {

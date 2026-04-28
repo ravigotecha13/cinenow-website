@@ -83,18 +83,6 @@
                </div>
             </div>
 
-            <!-- Custom ads: home_page, banner, or player (same promos as backend Custom Ads) -->
-            <div id="custom-homepage-ad-section" class="section-wraper section-hidden d-none">
-                <div class="custom-ad-container">
-                    <div class="custom-ad-wrapper">
-                        <div class="custom-ad-content">
-                            <img src="" alt="" class="ad-image">
-                            <div class="ad-overlay"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div id="latest-moive-section" class="d-none section-wraper scroll-section section-hidden">
                 <div class="card-style-slider movie-shimmer">
                     <div class="row gy-4 row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-6 mt-3">
@@ -480,9 +468,6 @@ sections.forEach(section => {
     observer.observe(section);
 });
 
-// Custom homepage ads: load once on page load (do not wait for Top 10 scroll)
-fetchCustomHomePageAd();
-
 const rtlMode = document.documentElement.getAttribute('dir') === 'rtl';
 
 ;
@@ -710,135 +695,6 @@ function fetchLanguages() {
        });
    }
 
-   function fetchCustomHomePageAd() {
-        const baseUrl = window.location.origin || document.querySelector('meta[name="baseUrl"]').getAttribute('content');
-        const adSection = document.getElementById('custom-homepage-ad-section');
-        if (!adSection) return;
-
-        function resolveAdMediaUrl(media) {
-            const m = (media == null) ? '' : String(media).trim();
-            if (!m) return '';
-            if (/^https?:\/\//i.test(m)) {
-                try {
-                    const mediaUrl = new URL(m);
-                    // Production-safe fallback: if media points to localhost/127.0.0.1, use current host for same storage path
-                    if (['127.0.0.1', 'localhost'].includes(mediaUrl.hostname) && mediaUrl.pathname.startsWith('/storage/')) {
-                        return window.location.origin + mediaUrl.pathname;
-                    }
-                } catch (e) {}
-                return m;
-            }
-            return m.startsWith('/') ? (window.location.origin + m) : (window.location.origin + '/' + m.replace(/^\/+/, ''));
-        }
-
-        fetch(`${baseUrl}/api/custom-ads/get-active`)
-            .then(response => response.ok ? response.json() : null)
-            .then(data => {
-                if (!data) return;
-                const rows = Array.isArray(data.data) ? data.data : (data.data && Array.isArray(data.data.data) ? data.data.data : []);
-                if (!(data.success && Array.isArray(rows) && rows.length > 0)) return;
-
-                const allowedPlacements = ['home_page', 'banner', 'player'];
-                const ads = rows
-                    .filter(item => item && item.status == 1 && item.media)
-                    .filter(item => allowedPlacements.includes((item.placement || '').toString().toLowerCase()))
-                    .sort((a, b) => {
-                        const pA = allowedPlacements.indexOf((a.placement || '').toString().toLowerCase());
-                        const pB = allowedPlacements.indexOf((b.placement || '').toString().toLowerCase());
-                        if (pA !== pB) return pA - pB;
-                        return Number(b.id || 0) - Number(a.id || 0);
-                    });
-
-                if (ads.length === 0) return;
-
-                let adHtml = `
-                    <div class="custom-ad-box">
-                        <div class="custom-ad-slider">
-                            ${ads.map(ad => {
-                                let content = '';
-                                const adType = (ad.type || '').toString().toLowerCase();
-                                const mediaUrl = resolveAdMediaUrl(ad.media);
-                                if (adType === 'image') {
-                                    content = `
-                                        <div class="custom-ad-content">
-                                            ${ad.redirect_url ? `
-                                                <a href="${ad.redirect_url}" class="ad-link" target="_blank" rel="noopener noreferrer">
-                                                    <img src="${mediaUrl}" alt="${ad.name}" class="ad-image">
-                                                    <div class="ad-overlay"></div>
-                                                </a>
-                                            ` : `
-                                                <img src="${mediaUrl}" alt="${ad.name}" class="ad-image">
-                                                <div class="ad-overlay"></div>
-                                            `}
-                                        </div>
-                                    `;
-                                } else if (adType === 'video') {
-                                    const isYouTube = mediaUrl.includes('youtube.com') || mediaUrl.includes('youtu.be');
-                                    if (isYouTube) {
-                                        let videoId = '';
-                                        if (mediaUrl.includes('youtu.be/')) {
-                                            videoId = mediaUrl.split('youtu.be/')[1].split(/[?&]/)[0];
-                                        } else if (mediaUrl.includes('youtube.com')) {
-                                            let url = new URL(mediaUrl);
-                                            videoId = url.searchParams.get('v');
-                                        }
-                                        content = `
-                                            <div class="custom-ad-content video-content">
-                                                <div class="video-container">
-                                                    <iframe class="ad-video" src="https://www.youtube.com/embed/${videoId}?rel=0&autoplay=1&mute=1&controls=0&showinfo=0&modestbranding=1&loop=1&playlist=${videoId}" frameborder="0"></iframe>
-                                                </div>
-                                                <div class="ad-overlay"></div>
-                                                ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
-                                            </div>
-                                        `;
-                                    } else {
-                                        content = `
-                                            <div class="custom-ad-content video-content">
-                                                <div class="video-container">
-                                                    <video class="ad-video" autoplay muted loop playsinline>
-                                                        <source src="${mediaUrl}" type="video/mp4">
-                                                        Your browser does not support the video tag.
-                                                    </video>
-                                                </div>
-                                                <div class="ad-overlay"></div>
-                                                ${ad.redirect_url ? `<div class="ad-video-overlay" onclick="window.open('${ad.redirect_url}', '_blank')"></div>` : ''}
-                                            </div>
-                                        `;
-                                    }
-                                }
-                                return `<div class="custom-ad-wrapper">${content}</div>`;
-                            }).join('')}
-                        </div>
-                    </div>
-                `;
-
-                adSection.innerHTML = adHtml;
-                adSection.classList.remove('section-hidden');
-                adSection.classList.remove('d-none');
-                adSection.classList.add('section-visible');
-
-                // Slick optional: keep content visible even if slick fails
-                if (window.$ && $.fn && typeof $.fn.slick === 'function') {
-                    const $slider = $('.custom-ad-slider');
-                    if ($slider.length && !$slider.hasClass('slick-initialized')) {
-                        $slider.slick({
-                            dots: true,
-                            arrows: false,
-                            infinite: ads.length > 1,
-                            slidesToShow: 1,
-                            slidesToScroll: 1,
-                            adaptiveHeight: true,
-                            autoplay: true,
-                            autoplaySpeed: 5000
-                        });
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching custom homepage ad:', error);
-            });
-    }
-
 // Slick General function to initialize the sliders
 function slickGeneral(className, rtlmode) {
     jQuery(`.${className}`).each(function () {
@@ -1001,13 +857,6 @@ function slickGeneral(className, rtlmode) {
             padding: 10px;
             margin: 20px auto;
         }
-    }
-
-    #custom-homepage-ad-section {
-        width: 100%;
-        max-width: 100%;
-        overflow: hidden;
-        padding: 0 15px;
     }
 
     /* New Ad Banner Styles */
@@ -1369,174 +1218,10 @@ function slickGeneral(className, rtlmode) {
     border-radius:2px;
     background:var(--bs-primary);#673b3a
 }
-/* ===============================================   */
-.custom-ad-box {
-    position: relative;
-    background: radial-gradient(ellipse at center, #0f0f23 0%, #000000 70%);
-    overflow: hidden;
-    border-radius: 12px;
-    animation: twinkle 2s ease-in-out infinite alternate;
-}
-
-/* Layered stars: repeat in both directions */
-.custom-ad-box::before,
-.custom-ad-box::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 200%;
-    height: 200%;
-    background-image:
-        radial-gradient(2px 2px at 20px 30px, #e50914, transparent),
-        radial-gradient(2px 2px at 40px 70px, rgb(250, 130, 130), transparent),
-        radial-gradient(2px 2px at 90px 40px, rgb(255, 102, 102), transparent),
-        radial-gradient(2px 2px at 130px 80px, rgb(206, 1, 8), transparent),
-        radial-gradient(2px 2px at 160px 30px, #f44336, transparent),
-        radial-gradient(2px 2px at 200px 90px, rgb(253, 190, 190), transparent),
-        radial-gradient(2px 2px at 300px 50px, rgb(244, 67, 54), transparent),
-        radial-gradient(2px 2px at 400px 10px, rgb(255, 136, 136), transparent),
-        radial-gradient(2px 2px at 500px 60px, rgb(255, 153, 153), transparent),
-        radial-gradient(2px 2px at 600px 80px, rgb(255, 102, 102), transparent),
-        radial-gradient(2px 2px at 700px 30px, rgb(255, 204, 204), transparent);
-    background-repeat: repeat;
-    background-size: 200px 200px;
-    animation: starfield 20s linear infinite, starTwinkle 3s ease-in-out infinite alternate;
-    z-index: 1;
-}
-
-.custom-ad-box::after {
-    background-image:
-        radial-gradient(2px 2px at 60px 20px, rgb(255, 94, 94), transparent),
-        radial-gradient(2px 2px at 100px 60px, rgb(255, 102, 102), transparent),
-        radial-gradient(2px 2px at 140px 10px, #e50914, transparent),
-        radial-gradient(2px 2px at 180px 80px, rgb(250, 130, 130), transparent),
-        radial-gradient(2px 2px at 220px 50px, #f44336, transparent),
-        radial-gradient(2px 2px at 260px 90px, rgb(244, 67, 54), transparent),
-        radial-gradient(2px 2px at 320px 30px, rgb(255, 153, 153), transparent),
-        radial-gradient(2px 2px at 480px 50px, rgb(255, 120, 120), transparent),
-        radial-gradient(2px 2px at 700px 70px, rgb(255, 80, 80), transparent);
-    background-repeat: repeat;
-    background-size: 200px 250px;
-    animation: starfield 30s linear infinite reverse, starTwinkle 4s ease-in-out infinite alternate-reverse;
-    z-index: 1;
-}
-
-/* Shooting stars going upward */
-.custom-ad-box .shooting-star {
-    position: absolute;
-    width: 2px;
-    height: 2px;
-    background: linear-gradient(to top, #e50914, transparent);
-    border-radius: 50%;
-    animation: shooting 4s ease-in-out infinite;
-    z-index: 3;
-}
-
-.custom-ad-box .shooting-star::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1px;
-    height: 50px;
-    background: linear-gradient(to top, #f44336, transparent);
-    transform-origin: bottom;
-}
-
-.custom-ad-box .shooting-star:nth-child(1) { left: 20%; bottom: -50px; animation-delay: 0s; }
-.custom-ad-box .shooting-star:nth-child(2) { left: 60%; bottom: -50px; animation-delay: 1.5s; }
-.custom-ad-box .shooting-star:nth-child(3) { left: 85%; bottom: -50px; animation-delay: 3s; }
-
-@keyframes shooting {
-    0%   { transform: translateY(0); opacity: 0; }
-    10%  { opacity: 1; }
-    90%  { opacity: 1; }
-    100% { transform: translateY(-100vh); opacity: 0; }
-}
-
-/* Twinkle animation for main container */
-@keyframes twinkle {
-    0%   { filter: brightness(1); }
-    100% { filter: brightness(1.2); }
-}
-
-/* Twinkling for stars */
-@keyframes starTwinkle {
-    0%   { opacity: 0.5; }
-    50%  { opacity: 1; }
-    100% { opacity: 0.7; }
-}
-
-/* Nebula with theme-based glow */
-.custom-ad-box .nebula {
-    position: absolute;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(229, 9, 20, 0.1) 0%, transparent 70%);
-    border-radius: 50%;
-    animation: nebulaDrift 25s ease-in-out infinite;
-    z-index: 2;
-}
-
-.custom-ad-box .nebula:nth-child(1) {
-    top: 10%;
-    left: 20%;
-    animation-delay: 0s;
-}
-
-.custom-ad-box .nebula:nth-child(2) {
-    top: 60%;
-    right: 10%;
-    background: radial-gradient(circle, rgba(244, 67, 54, 0.1) 0%, transparent 70%);
-    animation-delay: 8s;
-}
-.ad-video{
-    width:100%;
-    height:auto;
-}
-@keyframes nebulaDrift {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    33%      { transform: translate(30px, -20px) scale(1.1); }
-    66%      { transform: translate(-20px, 15px) scale(0.9); }
-}
-
-/* Upward starfield motion */
-@keyframes starfield {
-    0%   { transform: translateY(100%); }
-    100% { transform: translateY(-100%); }
-}
-
-/* Ensure ad content stays visible */
-.custom-ad-box > * {
-    position: relative;
-    z-index: 10;
-}
-
-/* Mobile optimization */
-@media (max-width: 768px) {
-    .custom-ad-box::before,
-    .custom-ad-box::after {
-        animation-duration: 25s, 4s;
-    }
-
-    .custom-ad-box .shooting-star {
-        animation-duration: 5s;
-    }
-}
-
-/* Reduce motion accessibility */
-@media (prefers-reduced-motion: reduce) {
-    .custom-ad-box::before,
-    .custom-ad-box::after,
-    .custom-ad-box .shooting-star,
-    .custom-ad-box .nebula,
-    .custom-ad-box {
-        animation: none !important;
-        background: #0f0f23 !important;
-    }
-}
-
+/* Note: the starfield/nebula/shooting-star/twinkle styles for the home-page
+   ad box used to live here. They were only used by the home-page ad widget
+   that has been removed. The ones still used on detail/player pages live in
+   components/section/custom_ad_banner.blade.php. */
 </style>
 @endpush
 

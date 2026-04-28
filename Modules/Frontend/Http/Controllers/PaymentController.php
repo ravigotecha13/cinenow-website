@@ -164,8 +164,12 @@ class PaymentController extends Controller
             ? intval($price) // No conversion for currencies without cents
             : intval($price * 100); // Convert to cents for other currencies
 
+        // Prefer the authenticated user's email, fall back to any email supplied
+        // with the request (e.g. guest checkout).
+        $customerEmail = auth()->check() ? auth()->user()->email : $request->input('email');
+
         try {
-            $checkout_session = $stripe->checkout->sessions->create([
+            $sessionPayload = [
                 'payment_method_types' => ['card'],
                 'line_items' => [[
                     'price_data' => [
@@ -181,9 +185,19 @@ class PaymentController extends Controller
                 'metadata' => [
                     'plan_id' => $plan_id,
                     'promotion_id' => $promotion_id,
+                    'user_id' => auth()->id(),
+                    'user_email' => $customerEmail,
                 ],
-                'success_url' => $baseURL . '/payment/success?gateway=stripe&session_id={CHECKOUT_SESSION_ID}'
-            ]);
+                'success_url' => route('payment.success', ['gateway' => 'stripe']) . '&session_id={CHECKOUT_SESSION_ID}',
+            ];
+
+            // customer_email prefills the email field on Stripe Checkout and is
+            // used for the purchase receipt. Only include a valid address.
+            if (!empty($customerEmail) && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+                $sessionPayload['customer_email'] = $customerEmail;
+            }
+
+            $checkout_session = $stripe->checkout->sessions->create($sessionPayload);
 
             return response()->json(['redirect' => $checkout_session->url]);
 
@@ -260,7 +274,7 @@ class PaymentController extends Controller
             'email' => auth()->user()->email, // Get user email from authenticated user
             'amount' => $priceInKobo,
             'currency' => 'NGN',
-            'callback_url' => $baseURL . '/payment/success?gateway=paystack',
+            'callback_url' => route('payment.success', ['gateway' => 'paystack']),
             'metadata' => [
                 'plan_id' => $plan_id,
             ],
@@ -384,7 +398,7 @@ class PaymentController extends Controller
                         'description' => 'Payment for Plan #' . $plan_id,
                         'logo' => $logo
                     ],
-                    'redirect_url' => $baseURL . '/payment/success?gateway=flutterwave'
+                    'redirect_url' => route('payment.success', ['gateway' => 'flutterwave'])
                 ]
             ]);
 
@@ -423,7 +437,7 @@ class PaymentController extends Controller
             'amount' => $priceFormatted,
             'currency' => $formattedCurrency,
             'description' => 'Plan purchase #' . $plan_id,
-            'return_url' => url('/payment/success?gateway=cinet'),
+            'return_url' => route('payment.success', ['gateway' => 'cinet']),
             'notify_url' => url('/payment/webhook/cinet'),
             'channels' => 'ALL',
             'lang' => 'en',
@@ -582,8 +596,8 @@ class PaymentController extends Controller
                     ]
                 ]],
                 'redirect_urls' => [
-                    'return_url' => $baseURL . '/payment/success?gateway=paypal',
-                    'cancel_url' => $baseURL . '/payment/cancel',
+                    'return_url' => route('payment.success', ['gateway' => 'paypal']),
+                    'cancel_url' => rtrim($baseURL, '/') . '/payment/cancel',
                 ],
             ],
         ]);
@@ -961,7 +975,7 @@ class PaymentController extends Controller
         $data = [
             'amount' => $price,
             'plan_id' => $plan_id,
-            'callback_url' => env('APP_URL') . '/payment/success?gateway=sadad',
+            'callback_url' => route('payment.success', ['gateway' => 'sadad']),
         ];
 
         $client = new \GuzzleHttp\Client();
@@ -1012,7 +1026,7 @@ class PaymentController extends Controller
         $data = [
             'amount' => $price,
             'plan_id' => $plan_id,
-            'callbackUrl' => env('APP_URL') . '/payment/success?gateway=phonepe',
+            'callbackUrl' => route('payment.success', ['gateway' => 'phonepe']),
             'currency' =>   $formattedCurrency,
         ];
         $client = new Client();
@@ -1036,7 +1050,7 @@ class PaymentController extends Controller
         $data = [
             'amount' => $price,
             'plan_id' => $plan_id,
-            'callback_url' => env('APP_URL') . '/payment/success?gateway=airtel',
+            'callback_url' => route('payment.success', ['gateway' => 'airtel']),
         ];
 
         $client = new Client();

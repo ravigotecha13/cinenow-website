@@ -34,12 +34,27 @@ class GenreRepository implements GenreRepositoryInterface
 
     public function create(array $data)
     {
+        if (isset($data['name_en'])) {
+            $data['name'] = $data['name_en'];
+        }
+        if (isset($data['description_en'])) {
+            $data['description'] = $data['description_en'];
+        }
+
         return Genres::create($data);
     }
 
     public function update($id, array $data)
     {
         $genre = Genres::findOrFail($id);
+
+        if (isset($data['name_en'])) {
+            $data['name'] = $data['name_en'];
+        }
+        if (isset($data['description_en'])) {
+            $data['description'] = $data['description_en'];
+        }
+
         $genre->update($data);
         return $genre;
     }
@@ -83,7 +98,11 @@ class GenreRepository implements GenreRepositoryInterface
         $query = Genres::query();
 
         if ($searchTerm) {
-            $query->where('name', 'like', "%{$searchTerm}%");
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', "%{$searchTerm}%")
+                    ->orWhere('name_en', 'like', "%{$searchTerm}%")
+                    ->orWhere('name_ar', 'like', "%{$searchTerm}%");
+            });
         }
 
         $query->where('status', 1)

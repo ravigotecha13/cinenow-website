@@ -196,31 +196,27 @@
 // }
 
 
-document.getElementById('file_url_media').addEventListener('change', function() {
-    const fileInput = document.getElementById('file_url_media');
-    const submitButton = document.getElementById('submitButton');
-    const fileError = document.getElementById('file_url_media-error');
-    if (fileInput && submitButton) {
-        fileInput.addEventListener('change', function() {
-            if (this.files.length > 0) {
-                fileInput.removeAttribute('required');
-                fileError.style.display = 'none';
-                submitButton.removeAttribute('disabled');
-            } else {
-                fileInput.setAttribute('required', 'required');
-                fileError.style.display = 'block';
-                submitButton.setAttribute('disabled', 'disabled');
-            }
-        });
-        if (fileInput.files.length > 0) {
+(function () {
+    var fileInput = document.getElementById('file_url_media');
+    var submitButton = document.getElementById('submitButton');
+    var fileError = document.getElementById('file_url_media-error');
+    if (!fileInput || !submitButton) return;
+
+    function syncSubmitState() {
+        if (fileInput.files && fileInput.files.length > 0) {
+            fileInput.removeAttribute('required');
+            if (fileError) fileError.style.display = 'none';
             submitButton.removeAttribute('disabled');
-            fileError.style.display = 'none';
         } else {
+            fileInput.setAttribute('required', 'required');
+            if (fileError) fileError.style.display = 'none';
             submitButton.setAttribute('disabled', 'disabled');
-            fileError.style.display = 'block';
         }
     }
-});
+
+    fileInput.addEventListener('change', syncSubmitState);
+    syncSubmitState();
+})();
 
 </script>
 

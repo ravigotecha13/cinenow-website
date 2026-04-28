@@ -84,7 +84,7 @@ return [
                 'data' => 'string', // data type, string, int, boolean
                 'name' => 'logo', // unique name for field
                 'label' => 'Logo', // you know what label it is
-                'rules' => 'nullable|image|mimes:jpg,png,gif', // validation rule of laravel
+                'rules' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:4096', // max KB; .ico/.svg handled in controller for favicon
                 'class' => '', // any class for input
                 'value' => 'img/logo/logo.png', // default value if you want
                 'help' => '', // Help text for the input field.
@@ -96,7 +96,7 @@ return [
                 'data' => 'string', // data type, string, int, boolean
                 'name' => 'mini_logo', // unique name for field
                 'label' => 'Mini Logo', // you know what label it is
-                'rules' => 'nullable|image|mimes:jpg,png,gif', // validation rule of laravel
+                'rules' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:4096',
                 'class' => '', // any class for input
                 'value' => 'img/logo/mini_logo.png', // default value if you want
                 'help' => '', // Help text for the input field.
@@ -108,7 +108,7 @@ return [
                 'data' => 'string', // data type, string, int, boolean
                 'name' => 'dark_logo', // unique name for field
                 'label' => 'Dark Logo', // you know what label it is
-                'rules' => 'nullable|image|mimes:jpg,png,gif', // validation rule of laravel
+                'rules' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:4096',
                 'class' => '', // any class for input
                 'imageClass' => 'bg-dark',
                 'value' => 'img/logo/dark_logo.png', // default value if you want
@@ -121,7 +121,7 @@ return [
                 'data' => 'string', // data type, string, int, boolean
                 'name' => 'light_logo', // unique name for field
                 'label' => 'Lignt Logo', // you know what label it is
-                'rules' => 'nullable|image|mimes:jpg,png,gif', // validation rule of laravel
+                'rules' => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:4096',
                 'class' => '', // any class for input
                 'value' => 'img/logo/light_logo.png', // default value if you want
                 'help' => '', // Help text for the input field.
@@ -133,7 +133,7 @@ return [
                 'data' => 'string', // data type, string, int, boolean
                 'name' => 'favicon', // unique name for field
                 'label' => 'Favicon', // you know what label it is
-                'rules' => 'nullable|image|mimes:jpg,png,gif,ico', // validation rule of laravel
+                'rules' => 'nullable|file|mimes:jpg,jpeg,png,gif,ico,webp|max:512',
                 'class' => '', // any class for input
                 'value' => 'img/logo/favicon.png', // default value if you want
                 'help' => '', // Help text for the input field.

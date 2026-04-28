@@ -120,7 +120,7 @@
                             @endif
                         @endif
 
-                        <x-watchlist-button :entertainment-id="$data['id']" :in-watchlist="$data['is_watch_list']" :entertainmentType="$data['type']" customClass="watch-list-btn" />
+                        <x-watchlist-button :entertainment-id="$data['id']" :in-watchlist="$data['is_watch_list'] ?? false" :entertainmentType="$data['type']" customClass="watch-list-btn" />
 
                         <x-like-button :entertainmentId="$data['id']" :isLiked="$data['is_likes']" :type="$data['type']"/>
 

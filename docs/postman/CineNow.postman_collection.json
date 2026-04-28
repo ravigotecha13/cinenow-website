@@ -1,0 +1,1747 @@
+{
+	"info": {
+		"_postman_id": "b1d3f9a0-1111-4c4a-9c2a-cinenow2026",
+		"name": "CineNow API",
+		"description": "Postman collection for the CineNow OTT platform (Laravel + Sanctum).\n\n**How to use:**\n1. Set the `base_url` collection variable (e.g. `http://localhost/cinenow/public`).\n2. Hit `Auth > Login`. The test script automatically saves the returned token into the `token` variable.\n3. All protected endpoints use `Authorization: Bearer {{token}}` via the collection-level auth.\n\nAll endpoints are registered under the `/api` prefix. Query-string parameters shown are the common ones accepted by controllers; many list endpoints also accept `lang`, `page`, `limit`, `type`, `search`, `genre_id`, `language_id`, `country_id`, etc.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{ "key": "token", "value": "{{token}}", "type": "string" }
+		]
+	},
+	"variable": [
+		{ "key": "base_url", "value": "http://localhost/cinenow/public", "type": "string" },
+		{ "key": "token", "value": "", "type": "string" },
+		{ "key": "user_id", "value": "1", "type": "string" },
+		{ "key": "movie_id", "value": "1", "type": "string" },
+		{ "key": "tvshow_id", "value": "1", "type": "string" },
+		{ "key": "episode_id", "value": "1", "type": "string" },
+		{ "key": "video_id", "value": "1", "type": "string" },
+		{ "key": "livetv_id", "value": "1", "type": "string" },
+		{ "key": "genre_id", "value": "1", "type": "string" },
+		{ "key": "castcrew_id", "value": "1", "type": "string" },
+		{ "key": "plan_id", "value": "1", "type": "string" },
+		{ "key": "coupon_id", "value": "1", "type": "string" },
+		{ "key": "profile_id", "value": "1", "type": "string" },
+		{ "key": "page_id", "value": "1", "type": "string" },
+		{ "key": "notification_id", "value": "1", "type": "string" }
+	],
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Accept", "value": "application/json" }
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "name", "value": "Demo User" },
+								{ "key": "email", "value": "demo@cinenow.test" },
+								{ "key": "password", "value": "Password@123" },
+								{ "key": "password_confirmation", "value": "Password@123" },
+								{ "key": "mobile_no", "value": "9999999999" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/register", "host": ["{{base_url}}"], "path": ["api", "register"] }
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"try {",
+									"  var res = pm.response.json();",
+									"  var token = res.token || (res.data && res.data.token) || (res.data && res.data.access_token) || res.access_token;",
+									"  if (token) { pm.collectionVariables.set('token', token); }",
+									"} catch (e) {}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Accept", "value": "application/json" }],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "email", "value": "demo@cinenow.test" },
+								{ "key": "password", "value": "Password@123" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/login", "host": ["{{base_url}}"], "path": ["api", "login"] }
+					}
+				},
+				{
+					"name": "Social Login",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "name", "value": "Google User" },
+								{ "key": "email", "value": "social@cinenow.test" },
+								{ "key": "provider", "value": "google" },
+								{ "key": "provider_id", "value": "1234567890" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/social-login", "host": ["{{base_url}}"], "path": ["api", "social-login"] }
+					}
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "email", "value": "demo@cinenow.test" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/forgot-password", "host": ["{{base_url}}"], "path": ["api", "forgot-password"] }
+					}
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/logout", "host": ["{{base_url}}"], "path": ["api", "logout"] }
+					}
+				},
+				{
+					"name": "User Details",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/user-detail", "host": ["{{base_url}}"], "path": ["api", "user-detail"] }
+					}
+				},
+				{
+					"name": "Authenticated User",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/user", "host": ["{{base_url}}"], "path": ["api", "user"] }
+					}
+				},
+				{
+					"name": "Update Profile",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "name", "value": "Updated Name" },
+								{ "key": "mobile_no", "value": "9876543210" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/update-profile", "host": ["{{base_url}}"], "path": ["api", "update-profile"] }
+					}
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "current_password", "value": "Password@123" },
+								{ "key": "password", "value": "NewPass@123" },
+								{ "key": "password_confirmation", "value": "NewPass@123" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/change-password", "host": ["{{base_url}}"], "path": ["api", "change-password"] }
+					}
+				},
+				{
+					"name": "Delete Account",
+					"request": {
+						"method": "POST",
+						"url": { "raw": "{{base_url}}/api/delete-account", "host": ["{{base_url}}"], "path": ["api", "delete-account"] }
+					}
+				},
+				{
+					"name": "Change PIN",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "pin", "value": "1234" },
+								{ "key": "confirm_pin", "value": "1234" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/change-pin", "host": ["{{base_url}}"], "path": ["api", "change-pin"] }
+					}
+				},
+				{
+					"name": "Send OTP",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/send-otp", "host": ["{{base_url}}"], "path": ["api", "send-otp"] }
+					}
+				},
+				{
+					"name": "Verify OTP",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "otp", "value": "123456" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/verify-otp", "host": ["{{base_url}}"], "path": ["api", "verify-otp"] }
+					}
+				},
+				{
+					"name": "Verify PIN",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "pin", "value": "1234" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/verify-pin", "host": ["{{base_url}}"], "path": ["api", "verify-pin"] }
+					}
+				},
+				{
+					"name": "Update Parental Lock",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "parental_lock", "value": "1" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/update-parental-lock", "host": ["{{base_url}}"], "path": ["api", "update-parental-lock"] }
+					}
+				},
+				{
+					"name": "Store Access Token",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "access_token", "value": "xxxxxx" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/store-access-token", "host": ["{{base_url}}"], "path": ["api", "store-access-token"] }
+					}
+				},
+				{
+					"name": "Revoke Token",
+					"request": {
+						"method": "POST",
+						"url": { "raw": "{{base_url}}/api/token-revoke", "host": ["{{base_url}}"], "path": ["api", "token-revoke"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "TV Device Pairing",
+			"item": [
+				{
+					"name": "Initiate TV Session",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/tv/initiate-session", "host": ["{{base_url}}"], "path": ["api", "tv", "initiate-session"] }
+					}
+				},
+				{
+					"name": "Check TV Session",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "code", "value": "ABC123" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/tv/check-session", "host": ["{{base_url}}"], "path": ["api", "tv", "check-session"] }
+					}
+				},
+				{
+					"name": "Confirm TV Session",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "code", "value": "ABC123" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/tv/confrim-session", "host": ["{{base_url}}"], "path": ["api", "tv", "confrim-session"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Dashboard",
+			"item": [
+				{
+					"name": "App Configuration",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/app-configuration", "host": ["{{base_url}}"], "path": ["api", "app-configuration"] }
+					}
+				},
+				{
+					"name": "Dashboard Detail",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/dashboard-detail", "host": ["{{base_url}}"], "path": ["api", "dashboard-detail"] }
+					}
+				},
+				{
+					"name": "Dashboard Detail Data",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/dashboard-detail-data", "host": ["{{base_url}}"], "path": ["api", "dashboard-detail-data"] }
+					}
+				},
+				{
+					"name": "Trending Data",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/get-tranding-data", "host": ["{{base_url}}"], "path": ["api", "get-tranding-data"] }
+					}
+				},
+				{
+					"name": "Banner Data",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/banner-data", "host": ["{{base_url}}"], "path": ["api", "banner-data"] }
+					}
+				},
+				{
+					"name": "Banners",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/banners", "host": ["{{base_url}}"], "path": ["api", "banners"] }
+					}
+				},
+				{
+					"name": "Global Gallery",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/gallery-list", "host": ["{{base_url}}"], "path": ["api", "gallery-list"] }
+					}
+				},
+				{
+					"name": "Global Search List",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/search-list?search=inception",
+							"host": ["{{base_url}}"],
+							"path": ["api", "search-list"],
+							"query": [{ "key": "search", "value": "inception" }]
+						}
+					}
+				},
+				{
+					"name": "Vendor Dashboard List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/vendor-dashboard-list", "host": ["{{base_url}}"], "path": ["api", "vendor-dashboard-list"] }
+					}
+				},
+				{
+					"name": "Optimize Queries",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/optimize", "host": ["{{base_url}}"], "path": ["api", "optimize"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Dashboard V2",
+			"item": [
+				{
+					"name": "Dashboard Detail V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/dashboard-detail", "host": ["{{base_url}}"], "path": ["api", "v2", "dashboard-detail"] }
+					}
+				},
+				{
+					"name": "Dashboard Detail Data V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/dashboard-detail-data", "host": ["{{base_url}}"], "path": ["api", "v2", "dashboard-detail-data"] }
+					}
+				},
+				{
+					"name": "Movie Details V2",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/v2/movie-details?movie_id={{movie_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "movie-details"],
+							"query": [{ "key": "movie_id", "value": "{{movie_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "TV Show Details V2",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/v2/tvshow-details?tvshow_id={{tvshow_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "tvshow-details"],
+							"query": [{ "key": "tvshow_id", "value": "{{tvshow_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Episode Details V2",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/v2/episode-details?episode_id={{episode_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v2", "episode-details"],
+							"query": [{ "key": "episode_id", "value": "{{episode_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Live TV Dashboard V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/livetv-dashboard", "host": ["{{base_url}}"], "path": ["api", "v2", "livetv-dashboard"] }
+					}
+				},
+				{
+					"name": "Movie List V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/movie-list", "host": ["{{base_url}}"], "path": ["api", "v2", "movie-list"] }
+					}
+				},
+				{
+					"name": "TV Show List V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/tvshow-list", "host": ["{{base_url}}"], "path": ["api", "v2", "tvshow-list"] }
+					}
+				},
+				{
+					"name": "Top 10 Movies V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/top-10-movie", "host": ["{{base_url}}"], "path": ["api", "v2", "top-10-movie"] }
+					}
+				},
+				{
+					"name": "Continue Watch List V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/web-continuewatch-list", "host": ["{{base_url}}"], "path": ["api", "v2", "web-continuewatch-list"] }
+					}
+				},
+				{
+					"name": "Profile Details V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/profile-details", "host": ["{{base_url}}"], "path": ["api", "v2", "profile-details"] }
+					}
+				},
+				{
+					"name": "Pay-Per-View List V2",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/v2/pay-per-view-list", "host": ["{{base_url}}"], "path": ["api", "v2", "pay-per-view-list"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Movies",
+			"item": [
+				{
+					"name": "Movie List",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/movie-list?page=1&limit=20",
+							"host": ["{{base_url}}"],
+							"path": ["api", "movie-list"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "20" },
+								{ "key": "genre_id", "value": "", "disabled": true },
+								{ "key": "language_id", "value": "", "disabled": true },
+								{ "key": "search", "value": "", "disabled": true }
+							]
+						}
+					}
+				},
+				{
+					"name": "Movie Details",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/movie-details?movie_id={{movie_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "movie-details"],
+							"query": [{ "key": "movie_id", "value": "{{movie_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Top 10 Movies",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/top-10-movie", "host": ["{{base_url}}"], "path": ["api", "top-10-movie"] }
+					}
+				},
+				{
+					"name": "Latest Movies",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/latest-movie", "host": ["{{base_url}}"], "path": ["api", "latest-movie"] }
+					}
+				},
+				{
+					"name": "Popular Movies",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/popular-movie", "host": ["{{base_url}}"], "path": ["api", "popular-movie"] }
+					}
+				},
+				{
+					"name": "Free Movies",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/free-movie", "host": ["{{base_url}}"], "path": ["api", "free-movie"] }
+					}
+				},
+				{
+					"name": "Most Liked Movies",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/most-like-movie", "host": ["{{base_url}}"], "path": ["api", "most-like-movie"] }
+					}
+				},
+				{
+					"name": "Most Viewed Movies",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/most-view-movie", "host": ["{{base_url}}"], "path": ["api", "most-view-movie"] }
+					}
+				},
+				{
+					"name": "Country Trending Movies",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/country-tranding-movie", "host": ["{{base_url}}"], "path": ["api", "country-tranding-movie"] }
+					}
+				},
+				{
+					"name": "Based on Last Watch",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/base-on-last-watch-movie", "host": ["{{base_url}}"], "path": ["api", "base-on-last-watch-movie"] }
+					}
+				},
+				{
+					"name": "Coming Soon",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/coming-soon", "host": ["{{base_url}}"], "path": ["api", "coming-soon"] }
+					}
+				},
+				{
+					"name": "Leaving Soon",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/leaving-soon", "host": ["{{base_url}}"], "path": ["api", "leaving-soon"] }
+					}
+				},
+				{
+					"name": "Search List",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/search-list?search=batman",
+							"host": ["{{base_url}}"],
+							"path": ["api", "search-list"],
+							"query": [{ "key": "search", "value": "batman" }]
+						}
+					}
+				},
+				{
+					"name": "Get Search",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/get-search?search=batman",
+							"host": ["{{base_url}}"],
+							"path": ["api", "get-search"],
+							"query": [{ "key": "search", "value": "batman" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "TV Shows",
+			"item": [
+				{
+					"name": "TV Show List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/tvshow-list", "host": ["{{base_url}}"], "path": ["api", "tvshow-list"] }
+					}
+				},
+				{
+					"name": "TV Show Details",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/tvshow-details?tvshow_id={{tvshow_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "tvshow-details"],
+							"query": [{ "key": "tvshow_id", "value": "{{tvshow_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Popular TV Shows",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/popular-tvshows", "host": ["{{base_url}}"], "path": ["api", "popular-tvshows"] }
+					}
+				},
+				{
+					"name": "Episode List",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/episode-list?season_id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "episode-list"],
+							"query": [{ "key": "season_id", "value": "1" }]
+						}
+					}
+				},
+				{
+					"name": "Episode Details",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/episode-details?episode_id={{episode_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "episode-details"],
+							"query": [{ "key": "episode_id", "value": "{{episode_id}}" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Videos",
+			"item": [
+				{
+					"name": "Video List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/video-list", "host": ["{{base_url}}"], "path": ["api", "video-list"] }
+					}
+				},
+				{
+					"name": "Video Details",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/video-details?video_id={{video_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "video-details"],
+							"query": [{ "key": "video_id", "value": "{{video_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Get Video",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/get-video", "host": ["{{base_url}}"], "path": ["api", "get-video"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Live TV",
+			"item": [
+				{
+					"name": "Live TV Dashboard",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/livetv-dashboard", "host": ["{{base_url}}"], "path": ["api", "livetv-dashboard"] }
+					}
+				},
+				{
+					"name": "Live TV Categories",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/livetv-category-list", "host": ["{{base_url}}"], "path": ["api", "livetv-category-list"] }
+					}
+				},
+				{
+					"name": "Live TV Details",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/livetv-details?livetv_id={{livetv_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "livetv-details"],
+							"query": [{ "key": "livetv_id", "value": "{{livetv_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Channel List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/channel-list", "host": ["{{base_url}}"], "path": ["api", "channel-list"] }
+					}
+				},
+				{
+					"name": "Top Channels",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/top-channels", "host": ["{{base_url}}"], "path": ["api", "top-channels"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Genres & Languages",
+			"item": [
+				{
+					"name": "Genre List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/genre-list", "host": ["{{base_url}}"], "path": ["api", "genre-list"] }
+					}
+				},
+				{
+					"name": "Get Genre",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/get-gener", "host": ["{{base_url}}"], "path": ["api", "get-gener"] }
+					}
+				},
+				{
+					"name": "Favorite Genres",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/favorite-genres", "host": ["{{base_url}}"], "path": ["api", "favorite-genres"] }
+					}
+				},
+				{
+					"name": "Fetch Languages",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/fetch-languages", "host": ["{{base_url}}"], "path": ["api", "fetch-languages"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Cast & Crew",
+			"item": [
+				{
+					"name": "Cast Crew List",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/castcrew-list?type=cast",
+							"host": ["{{base_url}}"],
+							"path": ["api", "castcrew-list"],
+							"query": [{ "key": "type", "value": "cast" }]
+						}
+					}
+				},
+				{
+					"name": "Favorite Personality",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/favorite-personality", "host": ["{{base_url}}"], "path": ["api", "favorite-personality"] }
+					}
+				},
+				{
+					"name": "User Favorite Personality",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/user-favorite-personality", "host": ["{{base_url}}"], "path": ["api", "user-favorite-personality"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "User Profile",
+			"item": [
+				{
+					"name": "Profile Details",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/profile-details", "host": ["{{base_url}}"], "path": ["api", "profile-details"] }
+					}
+				},
+				{
+					"name": "Account Setting",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/account-setting", "host": ["{{base_url}}"], "path": ["api", "account-setting"] }
+					}
+				},
+				{
+					"name": "Device Logout",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/device-logout", "host": ["{{base_url}}"], "path": ["api", "device-logout"] }
+					}
+				},
+				{
+					"name": "Logout All Devices",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/logout-all", "host": ["{{base_url}}"], "path": ["api", "logout-all"] }
+					}
+				},
+				{
+					"name": "Delete Account (user module)",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/delete-account", "host": ["{{base_url}}"], "path": ["api", "delete-account"] }
+					}
+				},
+				{
+					"name": "Save Watch History",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" },
+								{ "key": "watch_time", "value": "600" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-watch-content", "host": ["{{base_url}}"], "path": ["api", "save-watch-content"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Multi Profile",
+			"item": [
+				{
+					"name": "User Profile List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/user-profile-list", "host": ["{{base_url}}"], "path": ["api", "user-profile-list"] }
+					}
+				},
+				{
+					"name": "Save User Profile",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "name", "value": "Kids" },
+								{ "key": "is_kids", "value": "1" },
+								{ "key": "avatar", "value": "avatar1.png" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-userprofile", "host": ["{{base_url}}"], "path": ["api", "save-userprofile"] }
+					}
+				},
+				{
+					"name": "Get User Profile",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/get-userprofile/{{profile_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "get-userprofile", "{{profile_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Select User Profile",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/select-userprofile/{{profile_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "select-userprofile", "{{profile_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Delete User Profile",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "id", "value": "{{profile_id}}" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/delete-userprofile", "host": ["{{base_url}}"], "path": ["api", "delete-userprofile"] }
+					}
+				},
+				{
+					"name": "Get PIN Popup",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/get-pinpopup/{{profile_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "get-pinpopup", "{{profile_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Search History",
+			"item": [
+				{
+					"name": "Search History List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/search-list", "host": ["{{base_url}}"], "path": ["api", "search-list"] }
+					}
+				},
+				{
+					"name": "Save Search",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "search_text", "value": "avengers" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-search", "host": ["{{base_url}}"], "path": ["api", "save-search"] }
+					}
+				},
+				{
+					"name": "Delete Search",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/delete-search?id=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "delete-search"],
+							"query": [{ "key": "id", "value": "1" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Watchlist & Continue Watch",
+			"item": [
+				{
+					"name": "Watch List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/watch-list", "host": ["{{base_url}}"], "path": ["api", "watch-list"] }
+					}
+				},
+				{
+					"name": "Save Watchlist",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-watchlist", "host": ["{{base_url}}"], "path": ["api", "save-watchlist"] }
+					}
+				},
+				{
+					"name": "Delete Watchlist",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/delete-watchlist", "host": ["{{base_url}}"], "path": ["api", "delete-watchlist"] }
+					}
+				},
+				{
+					"name": "Continue Watch List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/continuewatch-list", "host": ["{{base_url}}"], "path": ["api", "continuewatch-list"] }
+					}
+				},
+				{
+					"name": "Web Continue Watch List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/web-continuewatch-list", "host": ["{{base_url}}"], "path": ["api", "web-continuewatch-list"] }
+					}
+				},
+				{
+					"name": "Save Continue Watch",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" },
+								{ "key": "current_time", "value": "320" },
+								{ "key": "duration", "value": "7200" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-continuewatch", "host": ["{{base_url}}"], "path": ["api", "save-continuewatch"] }
+					}
+				},
+				{
+					"name": "Delete Continue Watch",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/delete-continuewatch", "host": ["{{base_url}}"], "path": ["api", "delete-continuewatch"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Ratings, Likes & Reminders",
+			"item": [
+				{
+					"name": "Get Rating",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/get-rating?entertainment_id={{movie_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "get-rating"],
+							"query": [{ "key": "entertainment_id", "value": "{{movie_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Save Rating",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "rating", "value": "4" },
+								{ "key": "review", "value": "Great movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-rating", "host": ["{{base_url}}"], "path": ["api", "save-rating"] }
+					}
+				},
+				{
+					"name": "Update Rating",
+					"request": {
+						"method": "PUT",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "id", "value": "1" },
+								{ "key": "rating", "value": "5" },
+								{ "key": "review", "value": "Loved it" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/update-rating", "host": ["{{base_url}}"], "path": ["api", "update-rating"] }
+					}
+				},
+				{
+					"name": "Delete Rating",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "id", "value": "1" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/delete-rating", "host": ["{{base_url}}"], "path": ["api", "delete-rating"] }
+					}
+				},
+				{
+					"name": "Save Likes",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" },
+								{ "key": "is_like", "value": "1" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-likes", "host": ["{{base_url}}"], "path": ["api", "save-likes"] }
+					}
+				},
+				{
+					"name": "Save Download",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-download", "host": ["{{base_url}}"], "path": ["api", "save-download"] }
+					}
+				},
+				{
+					"name": "Delete Download",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/delete-download", "host": ["{{base_url}}"], "path": ["api", "delete-download"] }
+					}
+				},
+				{
+					"name": "Save Reminder",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-reminder", "host": ["{{base_url}}"], "path": ["api", "save-reminder"] }
+					}
+				},
+				{
+					"name": "Delete Reminder",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/delete-reminder", "host": ["{{base_url}}"], "path": ["api", "delete-reminder"] }
+					}
+				},
+				{
+					"name": "Save Entertainment Views",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-entertainment-views", "host": ["{{base_url}}"], "path": ["api", "save-entertainment-views"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Pay-Per-View & Payments",
+			"item": [
+				{
+					"name": "Pay Per View",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/pay-per-view", "host": ["{{base_url}}"], "path": ["api", "pay-per-view"] }
+					}
+				},
+				{
+					"name": "Pay Per View List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/pay-per-view-list", "host": ["{{base_url}}"], "path": ["api", "pay-per-view-list"] }
+					}
+				},
+				{
+					"name": "Movies Pay Per View",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/movies-pay-per-view", "host": ["{{base_url}}"], "path": ["api", "movies-pay-per-view"] }
+					}
+				},
+				{
+					"name": "TV Shows Pay Per View",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/tvshows-pay-per-view", "host": ["{{base_url}}"], "path": ["api", "tvshows-pay-per-view"] }
+					}
+				},
+				{
+					"name": "Videos Pay Per View",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/videos-pay-per-view", "host": ["{{base_url}}"], "path": ["api", "videos-pay-per-view"] }
+					}
+				},
+				{
+					"name": "Sessions Pay Per View",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/sessions-pay-per-view", "host": ["{{base_url}}"], "path": ["api", "sessions-pay-per-view"] }
+					}
+				},
+				{
+					"name": "Episodes Pay Per View",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/episodes-pay-per-view", "host": ["{{base_url}}"], "path": ["api", "episodes-pay-per-view"] }
+					}
+				},
+				{
+					"name": "Save Payment PPV",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" },
+								{ "key": "amount", "value": "9.99" },
+								{ "key": "payment_id", "value": "pay_demo" },
+								{ "key": "payment_status", "value": "success" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-payment-pay-per-view", "host": ["{{base_url}}"], "path": ["api", "save-payment-pay-per-view"] }
+					}
+				},
+				{
+					"name": "Start Date",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/start-date", "host": ["{{base_url}}"], "path": ["api", "start-date"] }
+					}
+				},
+				{
+					"name": "Transaction History",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/transaction-history", "host": ["{{base_url}}"], "path": ["api", "transaction-history"] }
+					}
+				},
+				{
+					"name": "Unlocked Content",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/unlocked-content", "host": ["{{base_url}}"], "path": ["api", "unlocked-content"] }
+					}
+				},
+				{
+					"name": "PPV Check Access",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/ppv/check-access", "host": ["{{base_url}}"], "path": ["api", "ppv", "check-access"] }
+					}
+				},
+				{
+					"name": "PPV Save Progress",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" },
+								{ "key": "current_time", "value": "120" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/ppv/save-progress", "host": ["{{base_url}}"], "path": ["api", "ppv", "save-progress"] }
+					}
+				},
+				{
+					"name": "PPV Consume Ticket",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "entertainment_id", "value": "{{movie_id}}" },
+								{ "key": "type", "value": "movie" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/ppv/consume-ticket", "host": ["{{base_url}}"], "path": ["api", "ppv", "consume-ticket"] }
+					}
+				},
+				{
+					"name": "Check Episode Purchase",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/check-episode-purchase?episode_id={{episode_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "check-episode-purchase"],
+							"query": [{ "key": "episode_id", "value": "{{episode_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "Check Movie Purchase",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/check-movie-purchase?movie_id={{movie_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "check-movie-purchase"],
+							"query": [{ "key": "movie_id", "value": "{{movie_id}}" }]
+						}
+					}
+				},
+				{
+					"name": "HyperPay Checkout",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "amount", "value": "9.99" },
+								{ "key": "currency", "value": "SAR" },
+								{ "key": "payment_type", "value": "DB" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/payments/hyperpay/checkout", "host": ["{{base_url}}"], "path": ["api", "payments", "hyperpay", "checkout"] }
+					}
+				},
+				{
+					"name": "HyperPay Status",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/payments/hyperpay/status?id=checkout_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "payments", "hyperpay", "status"],
+							"query": [{ "key": "id", "value": "checkout_id" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Subscriptions",
+			"item": [
+				{
+					"name": "Plan List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/plan-list", "host": ["{{base_url}}"], "path": ["api", "plan-list"] }
+					}
+				},
+				{
+					"name": "Plans - Index",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/plans", "host": ["{{base_url}}"], "path": ["api", "plans"] }
+					}
+				},
+				{
+					"name": "Plans - Show",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/plans/{{plan_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "plans", "{{plan_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Plans - Store",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "name", "value": "Basic" },
+								{ "key": "price", "value": "9.99" },
+								{ "key": "duration", "value": "30" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/plans", "host": ["{{base_url}}"], "path": ["api", "plans"] }
+					}
+				},
+				{
+					"name": "Plans - Update",
+					"request": {
+						"method": "PUT",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "name", "value": "Basic+" },
+								{ "key": "price", "value": "12.99" }
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/plans/{{plan_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "plans", "{{plan_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Plans - Destroy",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{base_url}}/api/plans/{{plan_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "plans", "{{plan_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Plan Limitations - Index",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/planlimitation", "host": ["{{base_url}}"], "path": ["api", "planlimitation"] }
+					}
+				},
+				{
+					"name": "Plan Limitations - Store",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "plan_id", "value": "{{plan_id}}" },
+								{ "key": "key", "value": "devices" },
+								{ "key": "value", "value": "2" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/planlimitation", "host": ["{{base_url}}"], "path": ["api", "planlimitation"] }
+					}
+				},
+				{
+					"name": "Save Subscription Details",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "plan_id", "value": "{{plan_id}}" },
+								{ "key": "payment_id", "value": "pay_demo" },
+								{ "key": "amount", "value": "9.99" },
+								{ "key": "coupon_code", "value": "", "disabled": true }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/save-subscription-details", "host": ["{{base_url}}"], "path": ["api", "save-subscription-details"] }
+					}
+				},
+				{
+					"name": "User Subscription History",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/user-subscription_histroy", "host": ["{{base_url}}"], "path": ["api", "user-subscription_histroy"] }
+					}
+				},
+				{
+					"name": "Cancel Subscription",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "subscription_id", "value": "1" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/cancle-subscription", "host": ["{{base_url}}"], "path": ["api", "cancle-subscription"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Coupons",
+			"item": [
+				{
+					"name": "Coupons Index",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/", "host": ["{{base_url}}"], "path": ["api", ""] }
+					}
+				},
+				{
+					"name": "Coupon List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/coupon-list", "host": ["{{base_url}}"], "path": ["api", "coupon-list"] }
+					}
+				},
+				{
+					"name": "Store Coupon",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "code", "value": "SAVE10" },
+								{ "key": "discount", "value": "10" },
+								{ "key": "discount_type", "value": "percent" },
+								{ "key": "expires_at", "value": "2026-12-31" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/store-coupons", "host": ["{{base_url}}"], "path": ["api", "store-coupons"] }
+					}
+				},
+				{
+					"name": "Update Coupon",
+					"request": {
+						"method": "PUT",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "code", "value": "SAVE15" },
+								{ "key": "discount", "value": "15" }
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/update/{{coupon_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "update", "{{coupon_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Destroy Coupon",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{base_url}}/api/destroy/{{coupon_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "destroy", "{{coupon_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Pages & FAQ",
+			"item": [
+				{
+					"name": "Page List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/page-list", "host": ["{{base_url}}"], "path": ["api", "page-list"] }
+					}
+				},
+				{
+					"name": "FAQ List",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/faq-list", "host": ["{{base_url}}"], "path": ["api", "faq-list"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Notifications",
+			"item": [
+				{
+					"name": "Notification List (paginated)",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/notification", "host": ["{{base_url}}"], "path": ["api", "notification"] }
+					}
+				},
+				{
+					"name": "Notification List (all)",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/notification-list", "host": ["{{base_url}}"], "path": ["api", "notification-list"] }
+					}
+				},
+				{
+					"name": "Notification Show",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/notification/{{notification_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "notification", "{{notification_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Notification Store",
+					"request": {
+						"method": "POST",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "title", "value": "New release" },
+								{ "key": "body", "value": "Check out the latest movies" }
+							]
+						},
+						"url": { "raw": "{{base_url}}/api/notification", "host": ["{{base_url}}"], "path": ["api", "notification"] }
+					}
+				},
+				{
+					"name": "Notification Update",
+					"request": {
+						"method": "PUT",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "read", "value": "1" }
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/notification/{{notification_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "notification", "{{notification_id}}"]
+						}
+					}
+				},
+				{
+					"name": "Notification Destroy",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{base_url}}/api/notification/{{notification_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "notification", "{{notification_id}}"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Ads",
+			"item": [
+				{
+					"name": "Get VAST Ads",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/get-vast-ads", "host": ["{{base_url}}"], "path": ["api", "get-vast-ads"] }
+					}
+				},
+				{
+					"name": "Get Custom Ads",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/get-custom-ads", "host": ["{{base_url}}"], "path": ["api", "get-custom-ads"] }
+					}
+				},
+				{
+					"name": "VAST Ads - Get Active",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/vast-ads/get-active", "host": ["{{base_url}}"], "path": ["api", "vast-ads", "get-active"] }
+					}
+				},
+				{
+					"name": "Custom Ads - Get Active",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/custom-ads/get-active", "host": ["{{base_url}}"], "path": ["api", "custom-ads", "get-active"] }
+					}
+				}
+			]
+		},
+		{
+			"name": "Setting",
+			"item": [
+				{
+					"name": "Setting Index",
+					"request": {
+						"method": "GET",
+						"url": { "raw": "{{base_url}}/api/setting", "host": ["{{base_url}}"], "path": ["api", "setting"] }
+					}
+				},
+				{
+					"name": "Setting Show",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/setting/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "setting", "1"]
+						}
+					}
+				},
+				{
+					"name": "Setting Update",
+					"request": {
+						"method": "PUT",
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "key", "value": "site_name" },
+								{ "key": "value", "value": "CineNow" }
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/setting/1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "setting", "1"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

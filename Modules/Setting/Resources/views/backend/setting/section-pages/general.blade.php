@@ -113,7 +113,7 @@
     </div>
     <div class="col-lg-8">
       <div class="d-flex align-items-center gap-2">
-        <input type="file" class="form-control d-none" id="mini_logo" name="mini_logo" accept=".jpeg, .jpg, .png, .gif">
+        <input type="file" class="form-control d-none" id="mini_logo" name="mini_logo" accept=".jpeg,.jpg,.png,.gif,.webp">
         <button type="button" class="btn btn-primary mb-5" onclick="document.getElementById('mini_logo').click();">{{ __('messages.upload') }}</button>
         <button type="button" class="btn btn-dark mb-5" id="removeMiniLogoButton">{{ __('messages.remove') }}</button>
       </div>
@@ -135,7 +135,7 @@
     </div>
     <div class="col-lg-8">
       <div class="d-flex align-items-center gap-2">
-        <input type="file" class="form-control d-none" id="dark_logo" name="dark_logo" accept=".jpeg, .jpg, .png, .gif">
+        <input type="file" class="form-control d-none" id="dark_logo" name="dark_logo" accept=".jpeg,.jpg,.png,.gif,.webp">
         <button type="button" class="btn btn-primary mb-5" onclick="document.getElementById('dark_logo').click();">{{ __('messages.upload') }}</button>
         <button type="button" class="btn btn-dark mb-5" id="removeDarkLogoButton">{{ __('messages.remove') }}</button>
       </div>
@@ -179,7 +179,7 @@
     </div>
     <div class="col-lg-8">
       <div class="d-flex align-items-center gap-2">
-        <input type="file" class="form-control d-none" id="favicon" name="favicon" accept=".jpeg, .jpg, .png, .gif">
+        <input type="file" class="form-control d-none" id="favicon" name="favicon" accept=".jpeg,.jpg,.png,.gif,.webp,.ico">
         <button type="button" class="btn btn-primary mb-5" onclick="document.getElementById('favicon').click();">{{ __('messages.upload') }}</button>
         <button type="button" class="btn btn-dark mb-5" id="removeFaviconButton">{{ __('messages.remove') }}</button>
       </div>

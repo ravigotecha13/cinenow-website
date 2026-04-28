@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use Modules\Page\Http\Requests\PageRequest;
 use App\Trait\ModuleTrait;
-use Stichoza\GoogleTranslate\GoogleTranslate;
+
 class PagesController extends Controller
 {
     protected string $exportClass = '\App\Exports\PageExport';
@@ -179,15 +179,8 @@ class PagesController extends Controller
     }
     public function show($slug, Request $request)
     {
-        // Find the page by slug
         $page = Page::where('slug', $slug)->firstOrFail();
 
-        $currentLang = app()->getLocale();
-
-        $page->description = GoogleTranslate::trans($page->description, $currentLang);
-        $page->name = GoogleTranslate::trans($page->name, $currentLang);
-
-        // Pass the page data to the view
         return view('page::backend.pages.show', compact('page'));
     }
     /**

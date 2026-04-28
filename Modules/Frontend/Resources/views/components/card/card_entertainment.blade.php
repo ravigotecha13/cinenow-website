@@ -148,14 +148,14 @@
 <div class="modern-movie-card mt-3">
 
     <!-- Fully clickable -->
-    <a href="{{ $value['type']=='tvshow' ? route('tvshow-details',['id'=>$value['id']]) : route('movie-details',['id'=>$value['id']]) }}"
+    <a href="{{ ($value['type'] ?? 'movie') == 'tvshow' ? route('tvshow-details',['id'=>$value['id']]) : route('movie-details',['id'=>$value['id']]) }}"
        class="position-absolute top-0 start-0 end-0 bottom-0 w-100 h-100"
        style="z-index:5;">
     </a>
 
-    <!-- Poster -->
+    <!-- Poster (APIs sometimes expose poster_url / thumbnail only) -->
     <div class="mm-image">
-        <img src="{{ $value['poster_image'] }}" alt="{{ $value['name'] }}">
+        <img src="{{ setBaseUrlWithFileName($value['poster_image'] ?? $value['poster_url'] ?? $value['thumbnail_image'] ?? $value['thumbnail_url'] ?? null) }}" alt="{{ $value['name'] ?? '' }}">
     </div>
 
     <!-- PREMIUM LOCK -->
@@ -164,7 +164,7 @@
         $user_level = $user_plan->level ?? 0;
     @endphp
 
-    @if($value['movie_access']=='paid' && $value['plan_level'] > $user_level)
+    @if(($value['movie_access'] ?? '') == 'paid' && ($value['plan_level'] ?? 0) > $user_level)
         <span class="mm-premium"><i class="ph ph-crown-simple"></i></span>
     @endif
 
@@ -174,13 +174,22 @@
 
         <!-- Genres -->
         <ul class="mm-genres">
-            @foreach(collect($value['genres'])->slice(0,2) as $gener)
-                <li>{{ $gener['name'] ?? $gener->resource->genre->name ?? '--' }}</li>
+            @foreach(collect($value['genres'] ?? [])->slice(0,2) as $gener)
+                @php
+                    if (is_array($gener)) {
+                        $genreName = app()->getLocale() === 'ar'
+                            ? ($gener['name_ar'] ?? $gener['name_en'] ?? $gener['name'] ?? '--')
+                            : ($gener['name_en'] ?? $gener['name'] ?? '--');
+                    } else {
+                        $genreName = \Modules\Genres\Support\GenreLocale::name(optional($gener->resource)->genre) ?? '--';
+                    }
+                @endphp
+                <li>{{ $genreName }}</li>
             @endforeach
         </ul>
 
         <!-- Title -->
-        <div class="mm-title">{{ $value['name'] }}</div>
+        <div class="mm-title">{{ $value['name'] ?? '' }}</div>
 
         <!-- Meta -->
        <div class="mm-meta mb-2" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}">
@@ -198,7 +207,7 @@
         
             {{-- Language --}}
             <i class="ph ph-translate"></i>
-            {{ $value['language'] }}
+            {{ $value['language'] ?? '--' }}
         </div>
 
 
@@ -207,11 +216,11 @@
 
             <x-watchlist-button
                 :entertainment-id="$value['id']"
-                :in-watchlist="$value['is_watch_list']"
-                :entertainmentType="$value['type']"
+                :in-watchlist="$value['is_watch_list'] ?? false"
+                :entertainmentType="$value['type'] ?? 'movie'"
                 customClass="mm-watchlist" />
 
-            <a href="{{ $value['type']=='tvshow' ? route('tvshow-details',['id'=>$value['id']]) : route('movie-details',['id'=>$value['id']]) }}"
+            <a href="{{ ($value['type'] ?? 'movie') == 'tvshow' ? route('tvshow-details',['id'=>$value['id']]) : route('movie-details',['id'=>$value['id']]) }}"
                class="mm-watchnow text-center">
                {{ __('frontend.watch_now') }}
             </a>

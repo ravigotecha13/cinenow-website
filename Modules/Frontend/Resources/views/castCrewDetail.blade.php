@@ -1,7 +1,7 @@
 @extends('frontend::layouts.master')
 
 @section('content')
-<div class="section-spacing p-0">
+<div class="section-spacing p-20">
     <div class="container-fluid">
         <div class="page-title">
             <h4 class="m-0 text-center">{{ $data['name'] }}</h4>
@@ -15,7 +15,7 @@
 
 
 @if($more_items !=null)
-<div class="section-spacing px-0">
+<div class="section-spacing px-20">
     <div class="container-fluid">
         <div class="d-flex align-items-center justify-content-between my-2">
             <h5 class="main-title text-capitalize mb-0">{{__('frontend.cast_movies_tvshows')}} {{  $data['name'] }}</h5>

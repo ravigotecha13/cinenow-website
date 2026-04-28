@@ -38,6 +38,8 @@ use Modules\Entertainment\Transformers\TvshowDetailResourceV2;
 use Modules\Entertainment\Transformers\TvshowResourceV2;
 use DB;
 use Modules\Entertainment\Models\Subtitle;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\Ad\Services\ActiveCustomAdsService;
 
 class EntertainmentsController extends Controller
 {
@@ -1093,9 +1095,20 @@ class EntertainmentsController extends Controller
             Cache::put($cacheKey, $responseData);
         }
 
+        $data = $responseData instanceof JsonResource
+            ? $responseData->toArray($request)
+            : (is_array($responseData) ? $responseData : (array) $responseData);
+
+        $data['active_ads'] = ActiveCustomAdsService::getForContentSingleMediaUrl(
+            $request,
+            'movie',
+            $movieId,
+            null
+        );
+
         return response()->json([
             'status' => true,
-            'data' => $responseData,
+            'data' => $data,
             'message' => __('movie.movie_details'),
         ], 200);
     }

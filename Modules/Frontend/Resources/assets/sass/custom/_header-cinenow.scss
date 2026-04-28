@@ -1,5 +1,46 @@
 // Cine Now header look — colors / visibility only (no width/height overrides)
 
+// Home, movies grid, movie detail: <main> stays at the top of the viewport (fixed header overlays hero/listing).
+// Body class is set in layouts/master.blade.php (`page-main-flush-top`).
+body.page-main-flush-top > main.flex-fill {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+body.page-main-flush-top > main.flex-fill > :first-child {
+  margin-top: 0 !important;
+}
+
+// Logo + primary links: keep one cluster, even spacing (theme iq-nav-menu margins are for the old center bar)
+.cinenow-main-header {
+  .header-leading {
+    @media (min-width: 1200px) {
+      flex: 0 1 auto;
+      gap: 1.25rem;
+    }
+  }
+
+  .header-inline-nav {
+    flex: 0 1 auto;
+
+    .iq-nav-menu {
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      width: auto;
+      max-width: 100%;
+      column-gap: 0.75rem;
+
+      > li {
+        margin-right: 0;
+      }
+
+      > li:last-child {
+        margin-right: 0;
+      }
+    }
+  }
+}
+
 // Desktop inline nav — white links, no forced capitalize
 .header-inline-nav {
   .iq-nav-menu > li > a.nav-link {
@@ -15,9 +56,10 @@
   }
 }
 
-// Hide duplicate center offcanvas nav on xl+ (inline nav used instead)
+// Hide duplicate offcanvas nav on xl+ (inline nav used instead).
+// Nav lives outside .cinenow-main-header so it never participates in the top-row flex (fixes cramped logo + links on list/inner pages).
 @media (min-width: 1200px) {
-  header .cinenow-main-header > nav#navbar_main.horizontal-nav.mobile-offcanvas {
+  header .navbar-inner > nav#navbar_main.horizontal-nav.mobile-offcanvas {
     display: none !important;
   }
 }

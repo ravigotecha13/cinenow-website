@@ -12,7 +12,24 @@ class CastCrew extends BaseModel
 
      protected $table = 'cast_crew';
 
-     protected $fillable = ['name', 'type','file_url','tmdb_id','bio','place_of_birth','dob','designation'];
+     protected $fillable = [
+         'name',
+         'name_en',
+         'name_ar',
+         'type',
+         'file_url',
+         'tmdb_id',
+         'bio',
+         'bio_en',
+         'bio_ar',
+         'place_of_birth',
+         'place_of_birth_en',
+         'place_of_birth_ar',
+         'dob',
+         'designation',
+         'designation_en',
+         'designation_ar',
+     ];
 
 
      public function entertainmentTalentMappings()
@@ -24,6 +41,21 @@ class CastCrew extends BaseModel
      protected static function boot()
      {
          parent::boot();
+
+         static::saving(function ($castcrew) {
+             if (empty($castcrew->name_en) && ! empty($castcrew->name)) {
+                 $castcrew->name_en = $castcrew->name;
+             }
+             if (empty($castcrew->bio_en) && ! empty($castcrew->bio)) {
+                 $castcrew->bio_en = $castcrew->bio;
+             }
+             if (empty($castcrew->place_of_birth_en) && ! empty($castcrew->place_of_birth)) {
+                 $castcrew->place_of_birth_en = $castcrew->place_of_birth;
+             }
+             if ($castcrew->designation_en === null && $castcrew->designation !== null && $castcrew->designation !== '') {
+                 $castcrew->designation_en = $castcrew->designation;
+             }
+         });
  
          static::deleting(function ($castcrew) {
  

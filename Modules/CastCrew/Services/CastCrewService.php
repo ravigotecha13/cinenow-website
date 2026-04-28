@@ -3,6 +3,7 @@
 namespace Modules\CastCrew\Services;
 
 use Modules\CastCrew\Repositories\CastCrewRepositoryInterface;
+use Modules\CastCrew\Support\CastCrewLocale;
 use Illuminate\Support\Str;
 use Yajra\DataTables\DataTables;
 use Carbon\Carbon;
@@ -70,10 +71,14 @@ class CastCrewService
             return '<input type="checkbox" class="form-check-input select-table-row"  id="datatable-row-'.$row->id.'"  name="datatable_ids[]" value="'.$row->id.'" data-type="cast-crew" onclick="dataTableRowCheck('.$row->id.', this)">';
         })
         ->editColumn('image', function ($data) {
-            $designation = $data->designation;
             $type = 'castcrew';
             $imageUrl = setBaseUrlWithFileName($data->file_url);
-            return view('components.media-item', ['thumbnail' => $imageUrl, 'name' => $data->name, 'designation' => $designation, 'type' => $type])->render();
+            return view('components.media-item', [
+                'thumbnail' => $imageUrl,
+                'name' => CastCrewLocale::name($data),
+                'designation' => CastCrewLocale::designation($data) ?? '',
+                'type' => $type,
+            ])->render();
         })
 
         ->editColumn('dob', function ($data) {
@@ -83,10 +88,7 @@ class CastCrewService
            return  $dob ;
         })
         ->editColumn('place_of_birth', function ($data) {
-
-            $place_of_birth = $data->place_of_birth ?  $data->place_of_birth : '-';
-
-           return  $place_of_birth ;
+            return CastCrewLocale::placeOfBirth($data) ?: '-';
         })
 
         ->filterColumn('dob', function($query, $keyword) {
@@ -137,7 +139,12 @@ class CastCrewService
         }
 
         if (isset($filter['name'])) {
-            $query->where('name', 'like', '%' . $filter['name'] . '%');
+            $term = $filter['name'];
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', '%' . $term . '%')
+                    ->orWhere('name_en', 'like', '%' . $term . '%')
+                    ->orWhere('name_ar', 'like', '%' . $term . '%');
+            });
         }
 
         return $query;

@@ -382,4 +382,13 @@ return [
 'enter_pin' => 'Enter PIN',
 'confirm_pin' => 'Confirm PIN',
 
+    'ad_timer_prefix' => 'Ad:',
+    'ad_seconds_unit' => 's',
+    'ads_separator' => 'of',
+    'skip_ad' => 'Skip Ad',
+
+    'player_quality' => 'Quality',
+    'player_subtitles' => 'Subtitles',
+    'player_subtitles_off' => 'Off',
+
 ];

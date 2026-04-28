@@ -3,6 +3,7 @@
 namespace Modules\Genres\Transformers;
 
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\Genres\Support\GenreLocale;
 
 class GenresResource extends JsonResource
 {
@@ -11,13 +12,20 @@ class GenresResource extends JsonResource
      */
     public function toArray($request)
     {
-        // dd($this);
+        $genre = $this->resource->genre ?? $this->resource;
+
+        $imagePath = GenreLocale::fileUrl($genre);
+        if (empty($imagePath) && ! empty($this->file_url)) {
+            $imagePath = $this->file_url;
+        }
+
         return [
             'id' => $this->id ?? null,
-            'name' => $this->name ?? $this->genre->name ?? null,
-            // 'description' => $this->description ?? null,
-            'genre_image' => !empty($this->file_url) ? setBaseUrlWithFileName($this->file_url) : null,
-            'status' => $this->status ?? $this->genre->status ??  null,
+            'name' => GenreLocale::name($genre),
+            'name_en' => $genre->name_en ?? $genre->name ?? null,
+            'name_ar' => $genre->name_ar ?? null,
+            'genre_image' => $imagePath ? setBaseUrlWithFileName($imagePath) : null,
+            'status' => $this->status ?? $genre->status ?? null,
         ];
     }
 }

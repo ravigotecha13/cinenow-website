@@ -22,7 +22,7 @@
                                 ->type('button')
                                 ->attribute('data-bs-toggle', 'modal')
                                 ->attribute('data-bs-target', '#exampleModal')
-                                ->attribute('data-image-container', 'selectedImageContainerCastcerw')
+                                ->attribute('data-image-container', 'selectedImageContainerCastcrew')
                                 ->attribute('data-hidden-input', 'file_url_image')
                             }}
 
@@ -35,7 +35,7 @@
                                 ->attribute('data-image-container', 'selectedImageContainerCastcrew')
                             }}
                         </div>
-                        <div class="uploaded-image" id="selectedImageContainerCastcerw">
+                        <div class="uploaded-image" id="selectedImageContainerCastcrew">
                             @if(old('file_url', isset($data) ? $data->file_url : ''))
                                 <img src="{{ old('file_url', isset($data) ? $data->file_url : '') }}" class="img-fluid mb-2" style="max-width: 100px; max-height: 100px;">
                             @endif
@@ -45,29 +45,57 @@
                     </div>
                     <div class="col-md-6 col-lg-4">
                         <div class="mb-3">
-                            {{ html()->label(__('castcrew.lbl_name') . '<span class="text-danger">*</span>', 'name')->class('form-label')}}
+                            {{ html()->label(__('castcrew.lbl_name') . ' (EN)<span class="text-danger">*</span>', 'name_en')->class('form-label')}}
                             {{
-                            html()->text('name', old('name'))
+                            html()->text('name_en', old('name_en'))
                                 ->class('form-control')
-                                ->id('name')
+                                ->id('name_en')
                                 ->placeholder(__('placeholder.lbl_cast_name'))
                                 ->attribute('required','required')
                             }}
                             <span class="text-danger" id="error_msg"></span>
-                            @error('name')
+                            @error('name_en')
                             <span class="text-danger">{{ $message }}</span>
                             @enderror
-                            <div class="invalid-feedback" id="name-error">Name field is required</div>
+                            <div class="invalid-feedback" id="name-en-error">English name is required</div>
                         </div>
-                        <div>
-                            {{ html()->label(__('castcrew.lbl_designation') , 'designation')->class('form-label')}}
+                        <div class="mb-3">
+                            {{ html()->label(__('castcrew.lbl_name') . ' (AR)<span class="text-danger">*</span>', 'name_ar')->class('form-label')}}
                             {{
-                            html()->text('designation', old('designation'))
+                            html()->text('name_ar', old('name_ar'))
                                 ->class('form-control')
-                                ->id('designation')
+                                ->id('name_ar')
+                                ->placeholder(__('placeholder.lbl_cast_name'))
+                                ->attribute('required','required')
+                                ->attribute('dir', 'rtl')
+                            }}
+                            @error('name_ar')
+                            <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                            <div class="invalid-feedback" id="name-ar-error">Arabic name is required</div>
+                        </div>
+                        <div class="mb-3">
+                            {{ html()->label(__('castcrew.lbl_designation') . ' (EN)', 'designation_en')->class('form-label')}}
+                            {{
+                            html()->text('designation_en', old('designation_en'))
+                                ->class('form-control')
+                                ->id('designation_en')
                                 ->placeholder(__('placeholder.lbl_cast_designation'))
                             }}
-                            @error('designation')
+                            @error('designation_en')
+                            <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                        </div>
+                        <div class="mb-3">
+                            {{ html()->label(__('castcrew.lbl_designation') . ' (AR)', 'designation_ar')->class('form-label')}}
+                            {{
+                            html()->text('designation_ar', old('designation_ar'))
+                                ->class('form-control')
+                                ->id('designation_ar')
+                                ->placeholder(__('placeholder.lbl_cast_designation'))
+                                ->attribute('dir', 'rtl')
+                            }}
+                            @error('designation_ar')
                             <span class="text-danger">{{ $message }}</span>
                             @enderror
                         </div>
@@ -104,40 +132,69 @@
                             @enderror
                             <div class="invalid-feedback" id="dob-error">Date of Birth field is required</div>
                         </div>
-                        <div>
-                            {{ html()->label(__('castcrew.lbl_birth_place') . '<span class="text-danger">*</span>', 'name')->class('form-label ')}}
+                        <div class="mb-3">
+                            {{ html()->label(__('castcrew.lbl_birth_place') . ' (EN)<span class="text-danger">*</span>', 'place_of_birth_en')->class('form-label ')}}
                             {{
-                            html()->text('place_of_birth', old('place_of_birth'))
+                            html()->text('place_of_birth_en', old('place_of_birth_en'))
                                 ->class('form-control ')
-                                ->id('place_of_birth')
+                                ->id('place_of_birth_en')
                                 ->placeholder(__('placeholder.lbl_cast_place_of_birth'))
                                 ->attribute('required','required')
                             }}
-                            @error('place_of_birth')
+                            @error('place_of_birth_en')
                             <span class="text-danger">{{ $message }}</span>
                             @enderror
-                            <div class="invalid-feedback" id="name-error">Birth Place field is required</div>
+                            <div class="invalid-feedback" id="pob-en-error">English place of birth is required</div>
+                        </div>
+                        <div>
+                            {{ html()->label(__('castcrew.lbl_birth_place') . ' (AR)<span class="text-danger">*</span>', 'place_of_birth_ar')->class('form-label ')}}
+                            {{
+                            html()->text('place_of_birth_ar', old('place_of_birth_ar'))
+                                ->class('form-control ')
+                                ->id('place_of_birth_ar')
+                                ->placeholder(__('placeholder.lbl_cast_place_of_birth'))
+                                ->attribute('required','required')
+                                ->attribute('dir', 'rtl')
+                            }}
+                            @error('place_of_birth_ar')
+                            <span class="text-danger">{{ $message }}</span>
+                            @enderror
+                            <div class="invalid-feedback" id="pob-ar-error">Arabic place of birth is required</div>
                         </div>
                     </div>
                     <div class="col-md-12">
-
                         <div class="d-flex align-items-center justify-content-between mb-2">
-                            {{ html()->label(__('castcrew.lbl_bio') . ' <span class="text-danger">*</span>', 'bio')->class('form-label') }}
+                            {{ html()->label(__('castcrew.lbl_bio') . ' (EN) <span class="text-danger">*</span>', 'bio_en')->class('form-label') }}
                             <span class="text-primary cursor-pointer" id="GenrateshortDescription"><i class="ph ph-info" data-bs-toggle="tooltip" title="{{ __('messages.chatgpt_info') }}"></i> {{ __('messages.lbl_chatgpt') }}</span>
                         </div>
-
                         {{
-                        html()->textarea('bio', old('bio'))
+                        html()->textarea('bio_en', old('bio_en'))
                             ->class('form-control')
-                            ->id('bio')
+                            ->id('bio_en')
                             ->placeholder(__('placeholder.lbl_cast_bio'))
-                            ->rows('6')
+                            ->rows('4')
                             ->attribute('required','required')
                         }}
-                        @error('bio')
+                        @error('bio_en')
                         <span class="text-danger">{{ $message }}</span>
                         @enderror
-                        <div class="invalid-feedback" id="name-error">Bio field is required</div>
+                        <div class="invalid-feedback" id="bio-en-error">English bio is required</div>
+                        <div class="mt-3 d-flex align-items-center justify-content-between mb-2">
+                            {{ html()->label(__('castcrew.lbl_bio') . ' (AR) <span class="text-danger">*</span>', 'bio_ar')->class('form-label') }}
+                        </div>
+                        {{
+                        html()->textarea('bio_ar', old('bio_ar'))
+                            ->class('form-control')
+                            ->id('bio_ar')
+                            ->placeholder(__('placeholder.lbl_cast_bio'))
+                            ->rows('4')
+                            ->attribute('required','required')
+                            ->attribute('dir', 'rtl')
+                        }}
+                        @error('bio_ar')
+                        <span class="text-danger">{{ $message }}</span>
+                        @enderror
+                        <div class="invalid-feedback" id="bio-ar-error">Arabic bio is required</div>
                     </div>
                 </div>
             </div>
@@ -173,13 +230,13 @@ $('#GenrateshortDescription').on('click', function(e) {
 
     e.preventDefault();
 
-    var description = $('#bio').val();
-    var name = $('#name').val();
-    var place_of_birth = $('#place_of_birth').val();
+    var description = $('#bio_en').val();
+    var name = $('#name_en').val();
+    var place_of_birth = $('#place_of_birth_en').val();
     var dob = $('#dob').val();
 
     if (!description && !name) {
-        $('#error_msg').text('Name field is required');
+        $('#error_msg').text('English name is required');
          return;
      }
 
@@ -202,7 +259,7 @@ $('#GenrateshortDescription').on('click', function(e) {
 
     }
 
-     $('#bio').text('Loading...')
+     $('#bio_en').text('Loading...')
 
   $.ajax({
 
@@ -216,12 +273,12 @@ $('#GenrateshortDescription').on('click', function(e) {
              },
        success: function(response) {
 
-           $('#bio').text('')
+           $('#bio_en').text('')
 
             if(response.success){
 
              var data = response.data;
-             $('#bio').html(data)
+             $('#bio_en').html(data)
 
             } else {
                 $('#error_message').text(response.message || 'Failed to get Description.');
@@ -229,7 +286,7 @@ $('#GenrateshortDescription').on('click', function(e) {
         },
        error: function(xhr) {
          $('#error_message').text('Failed to get Description.');
-         $('#bio').text('');
+         $('#bio_en').text('');
            if (xhr.responseJSON && xhr.responseJSON.message) {
                $('#error_message').text(xhr.responseJSON.message);
            } else {

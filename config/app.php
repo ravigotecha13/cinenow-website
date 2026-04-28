@@ -58,6 +58,15 @@ return [
 
     'url' => env('APP_URL', 'http://localhost-starter.local'),
 
+    /** Override public file URLs (e.g. http://192.168.1.5:8000) when set; else APP_URL. */
+    'media_base_url' => env('MEDIA_BASE_URL'),
+
+    /**
+     * When true, use the current HTTP request host for storage/ URLs (e.g. phone on LAN calls http://IP:8000/...).
+     * Ignored for CLI/queues; use MEDIA_BASE_URL or APP_URL in those cases.
+     */
+    'use_request_host_for_public_files' => (bool) env('USE_REQUEST_HOST_FOR_PUBLIC_FILES', false),
+
     'mix_url' => env('MIX_ASSET_URL', null),
 
     'asset_url' => env('ASSET_URL'),

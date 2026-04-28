@@ -63,7 +63,7 @@
           </div>
 
           <div class="d-flex align-items-center gap-3 mt-3">
-                <x-watchlist-button :entertainment-id="$data['id']" entertainmentType="video"  :in-watchlist="$data['is_watch_list']" customClass="watch-list-btn" />
+                <x-watchlist-button :entertainment-id="$data['id']" entertainmentType="video"  :in-watchlist="$data['is_watch_list'] ?? false" customClass="watch-list-btn" />
               <div class="flex-grow-1">
                 <a href="{{  route('video-detail', ['id' => $data['id']]) }}"
                     class="btn btn-primary w-100">

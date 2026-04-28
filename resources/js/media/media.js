@@ -1,4 +1,4 @@
-let baseUrl = document.querySelector('meta[name="base-url"]').getAttribute('content');
+let baseUrl = (document.querySelector('meta[name="base-url"]')?.getAttribute('content') || window.location.origin).replace(/\/+$/, '');
 
 const exampleModal = document.getElementById('exampleModal');
 const mediaContainer = document.getElementById('media-container');
@@ -9,58 +9,78 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentHiddenInput = '';
     let videoInputCounter = 0; // Initialize a counter for dynamic IDs
 
-    function initializeImageSelection(button) {
-        button.addEventListener('click', function() {
-            currentImageContainer = this.getAttribute('data-image-container');
-            currentHiddenInput = this.getAttribute('data-hidden-input');
+    function resetMediaSelection() {
+        selectedMediaUrl = '';
+        document.querySelectorAll('#mediaLibraryContent .iq-image').forEach(function (el) {
+            el.classList.remove('iq-image');
+        });
+        var mediaSubmit = document.getElementById('mediaSubmitButton');
+        if (mediaSubmit) mediaSubmit.setAttribute('disabled', 'disabled');
+    }
+
+    function initializeImageSelection(trigger) {
+        trigger.addEventListener('click', function() {
+            currentImageContainer = this.getAttribute('data-image-container') || '';
+            currentHiddenInput = this.getAttribute('data-hidden-input') || '';
+            resetMediaSelection();
         });
     }
 
     function initializeModal() {
-        document.querySelectorAll('button[data-bs-target="#exampleModal"]').forEach(function(button) {
-            initializeImageSelection(button);
+        document.querySelectorAll('[data-bs-target="#exampleModal"][data-image-container]').forEach(function(trigger) {
+            initializeImageSelection(trigger);
         });
     }
 
     function selectMedia(mediaUrl, mediaElement) {
         selectedMediaUrl = mediaUrl;
 
-        // Remove active class from all media elements
-        document.querySelectorAll('#mediaLibraryContent img, #mediaLibraryContent video').forEach(function(media) {
-            media.classList.remove('iq-image');
+        document.querySelectorAll('#mediaLibraryContent .iq-image').forEach(function (el) {
+            el.classList.remove('iq-image');
         });
-
-        // Add active class to the selected media element
         mediaElement.classList.add('iq-image');
+
+        var mediaSubmit = document.getElementById('mediaSubmitButton');
+        if (mediaSubmit) mediaSubmit.removeAttribute('disabled');
     }
 
     if (document.getElementById('mediaLibraryContent')) {
         document.getElementById('mediaLibraryContent').addEventListener('click', function(event) {
+            var host = document.getElementById('mediaLibraryContent');
+            var imgEl = event.target.closest ? event.target.closest('img') : null;
+            var videoEl = event.target.closest ? event.target.closest('video') : null;
 
-            if (event.target.tagName === 'IMG') {
-                var mediaUrl = event.target.src;
-                selectMedia(mediaUrl, event.target);
-            } else if (event.target.tagName === 'VIDEO') {
-
-             var mediaUrl = event.target.querySelector('source').src;
-             //   var mediaUrl = event.target.src;
+            if (imgEl && host.contains(imgEl)) {
+                selectMedia(imgEl.src, imgEl);
+            } else if (videoEl && host.contains(videoEl)) {
+                var source = videoEl.querySelector('source');
+                var mediaUrl = source ? source.src : videoEl.src;
                 if (mediaUrl) {
-
-                    selectMedia(mediaUrl, event.target);
+                    selectMedia(mediaUrl, videoEl);
                 }
                 event.preventDefault();
             }
         });
     }
 
+    if (exampleModal) {
+        exampleModal.addEventListener('hidden.bs.modal', resetMediaSelection);
+    }
+
     if (document.getElementById('mediaSubmitButton')) {
       document.getElementById('mediaSubmitButton').addEventListener('click', function() {
-          if (selectedMediaUrl && currentImageContainer && currentHiddenInput) {
+          if (!selectedMediaUrl || !currentImageContainer || !currentHiddenInput) {
+              return;
+          }
+          {
               var selectedImageContainer = document.getElementById(currentImageContainer);
               var mediaUrlInput = document.getElementById(currentHiddenInput);
 
               if (selectedImageContainer) {
                   mediaUrlInput.value = selectedMediaUrl;
+
+                  var removeFlagOnSelect = document.getElementById('remove_image_flag');
+                  if (removeFlagOnSelect) removeFlagOnSelect.value = 0;
 
                   selectedImageContainer.innerHTML = '';
 
@@ -128,8 +148,13 @@ document.addEventListener('DOMContentLoaded', function() {
                       }
                   } else {
 
-                    if(selectedMediaUrl.endsWith('.png') || selectedMediaUrl.endsWith('.jpg') || selectedMediaUrl.endsWith('.jpeg') || selectedMediaUrl.endsWith('.webp')){
-                      // For other cases, default behavior (assuming image upload or other media)
+                    var urlPathOnly = (selectedMediaUrl || '').split('?')[0].split('#')[0].toLowerCase();
+                    var imageExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.bmp', '.avif'];
+                    var videoExts = ['.mp4', '.avi', '.mov', '.webm', '.mkv', '.m4v', '.ogv'];
+                    var isImage = imageExts.some(function (ext) { return urlPathOnly.endsWith(ext); });
+                    var isVideo = videoExts.some(function (ext) { return urlPathOnly.endsWith(ext); });
+
+                    if (isImage || (!isVideo && selectedMediaUrl)) {
                       var img = document.createElement('img');
                       img.src = selectedMediaUrl;
                       img.classList.add('img-fluid', 'mb-2');
@@ -141,11 +166,12 @@ document.addEventListener('DOMContentLoaded', function() {
                       var crossIcon = document.createElement('span');
                       crossIcon.innerHTML = '&times;';
                       crossIcon.classList.add('remove-media-icon');
-                      crossIcon.style.cursor = 'pointer';
-                      crossIcon.style.fontSize = '24px';
-                      crossIcon.addEventListener('click', function() {
+                      crossIcon.addEventListener('click', function(e) {
+                          e.stopPropagation();
                           selectedImageContainer.innerHTML = '';
                           mediaUrlInput.value = '';
+                          var removeFlag = document.getElementById('remove_image_flag');
+                          if (removeFlag) removeFlag.value = 1;
                       });
 
                       selectedImageContainer.appendChild(crossIcon);
@@ -154,13 +180,6 @@ document.addEventListener('DOMContentLoaded', function() {
                           errorElement.classList.add('text-danger');
                           errorElement.textContent = 'Only image files are allowed.';
                           selectedImageContainer.appendChild(errorElement);
-
-                          var buttonElements = document.querySelectorAll('.input-group-text.form-control');
-                          buttonElements.forEach(function(buttonElement) {
-                              if (buttonElement) {
-                                  buttonElement.innerHTML = '';
-                              }
-                          });
                        }
                    }
 
@@ -203,21 +222,28 @@ document.addEventListener('DOMContentLoaded', function() {
             xhr.onload = function() {
                 if (xhr.status === 200) {
                     window.uploadedFiles = [];
-                    // Trigger the media library tab to refresh
                     document.getElementById('nav-media-library-tab').click();
 
                     const mediaContainer = document.getElementById('media-container');
-                    page = 1; // Reset the page to 1
-                    mediaContainer.innerHTML = ''; // Clear the container to load fresh content
+                    if (mediaContainer) mediaContainer.innerHTML = '';
 
-                    submitButton.disabled = false;
+                    // Reset pagination so the refreshed library starts at page 1.
+                    _libPage = 1;
+                    _libHasMore = true;
+                    _libIsLoading = false;
+                    loadPaginatedImages();
 
-                    loadPaginatedImages(); // Call the pagination function
+                    var mediaLibraryContentEl = document.getElementById('mediaLibraryContent');
+                    if (mediaLibraryContentEl && typeof handleScroll === 'function') {
+                        mediaLibraryContentEl.addEventListener('scroll', handleScroll);
+                    }
 
-                    // Add the scroll event listener after the initial load
-                    mediaLibraryContent.addEventListener('scroll', handleScroll);
                     var uploadedImagesCont = document.getElementById('uploadedImages');
-                    uploadedImagesCont.innerHTML = '';
+                    if (uploadedImagesCont) uploadedImagesCont.innerHTML = '';
+
+                    submitButton.setAttribute('disabled', 'disabled');
+                    var fileInputReset = document.getElementById('file_url_media');
+                    if (fileInputReset) fileInputReset.value = '';
                 }
             };
 
@@ -243,49 +269,46 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 }
 
+// Module-level pagination state shared by upload-success refresh and scroll loader.
+let _libPage = 1;
+let _libHasMore = true;
+let _libIsLoading = false;
+
 function loadPaginatedImages() {
-
     const mediaContainer = document.getElementById('media-container');
-    const loadingSpinner = document.getElementById('loading-spinner');
-    const mediaLibraryContent = document.getElementById('mediaLibraryContent');
-    const perPage = 21; // Number of images per page (adjust as needed)
+    if (!mediaContainer) return;
+    if (_libIsLoading || !_libHasMore) return;
 
-    let isLoading = false;
-    let hasMore = true;
-    if (isLoading || !hasMore) return; // Prevent duplicate loads
+    const perPage = 21;
+    _libIsLoading = true;
 
-    isLoading = true; // Set loading to true
-    fetch(`${baseUrl}/app/media-library/getMediaStore?page=${page}&perPage=${perPage}`)
+    fetch(`${baseUrl}/app/media-library/getMediaStore?page=${_libPage}&perPage=${perPage}`)
         .then(response => response.json())
         .then(data => {
-            if (data.html) {
-                if (page === 1) {
-                    mediaContainer.innerHTML = ''; // Clear existing content only on the first page load
+            if (data && data.html) {
+                if (_libPage === 1) {
+                    mediaContainer.innerHTML = '';
                 }
-
                 mediaContainer.insertAdjacentHTML('beforeend', data.html);
 
                 if (data.hasMore) {
-                    page++; // Increment page number if more images are available
+                    _libPage++;
                 } else {
-                    hasMore = false; // Set hasMore to false if no more images
+                    _libHasMore = false;
                 }
-            } else {
-                console.log("No data received");
             }
         })
-        .catch(error => console.error('Error:', error))
+        .catch(error => console.error('Error loading paginated images:', error))
         .finally(() => {
-            isLoading = false; // Reset loading status after the fetch completes
+            _libIsLoading = false;
         });
 }
 
-// Scroll event handler to trigger loading more images
 function handleScroll() {
-
-    // Check if the user has scrolled to the bottom of the mediaLibraryContent container
+    const mediaLibraryContent = document.getElementById('mediaLibraryContent');
+    if (!mediaLibraryContent) return;
     if (mediaLibraryContent.scrollTop + mediaLibraryContent.clientHeight >= mediaLibraryContent.scrollHeight - 100) {
-        loadPaginatedImages(); // Load more images when the user scrolls to the bottom
+        loadPaginatedImages();
     }
 }
 
@@ -581,7 +604,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let hasMore = true;
     let searchQuery = ''; // Variable to store the search query
     let issearch=0; // Variable to hold the debounce timeout ID
-    const baseUrl = document.querySelector('meta[name="base-url"]').getAttribute('content'); // Adjust if necessary
+    const baseUrl = (document.querySelector('meta[name="base-url"]')?.getAttribute('content') || window.location.origin).replace(/\/+$/, '');
     let noAvailableMessageShown = false; // Flag to prevent multiple "No Available" messages
 
     function loadImages(query = '') {

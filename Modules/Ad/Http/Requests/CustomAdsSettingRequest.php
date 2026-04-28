@@ -3,9 +3,21 @@
 namespace Modules\Ad\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CustomAdsSettingRequest extends FormRequest
 {
+    /**
+     * Custom ads are restricted to video creatives in the player placement (UI no longer exposes other options).
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'type' => 'video',
+            'placement' => 'player',
+        ]);
+    }
+
     /**
      * Get the validation rules that apply to the request.
      */
@@ -13,9 +25,9 @@ class CustomAdsSettingRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:100'],
-            'type' => ['required'],
+            'type' => ['required', Rule::in(['video'])],
             'url_type' => ['required', 'string'],
-            'placement' => ['required'],
+            'placement' => ['required', Rule::in(['player'])],
             // 'duration' => ['required'],
             // 'skip_enabled' => ['boolean'],
             // 'skip_after' => ['required_if:enable,1'],

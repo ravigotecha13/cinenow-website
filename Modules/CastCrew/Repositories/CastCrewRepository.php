@@ -27,14 +27,40 @@ class CastCrewRepository implements CastCrewRepositoryInterface
 
     public function create(array $data)
     {
+        $data = $this->syncLegacyColumns($data);
+
         return CastCrew::create($data);
     }
 
     public function update($id, array $data)
     {
         $genre = CastCrew::findOrFail($id);
+        $data = $this->syncLegacyColumns($data);
         $genre->update($data);
         return $genre;
+    }
+
+    /**
+     * Keep legacy single-locale columns aligned with English fields (imports, API, exports).
+     */
+    protected function syncLegacyColumns(array $data): array
+    {
+        if (isset($data['name_en'])) {
+            $data['name'] = $data['name_en'];
+        }
+        if (isset($data['bio_en'])) {
+            $data['bio'] = $data['bio_en'];
+        }
+        if (isset($data['place_of_birth_en'])) {
+            $data['place_of_birth'] = $data['place_of_birth_en'];
+        }
+        if (array_key_exists('designation_en', $data)) {
+            $data['designation'] = $data['designation_en'] !== '' && $data['designation_en'] !== null
+                ? $data['designation_en']
+                : null;
+        }
+
+        return $data;
     }
 
     public function delete($id)
@@ -76,7 +102,11 @@ class CastCrewRepository implements CastCrewRepositoryInterface
         $query = CastCrew::query();
 
         if ($searchTerm) {
-            $query->where('name', 'like', "%{$searchTerm}%");
+            $query->where(function ($q) use ($searchTerm) {
+                $q->where('name', 'like', "%{$searchTerm}%")
+                    ->orWhere('name_en', 'like', "%{$searchTerm}%")
+                    ->orWhere('name_ar', 'like', "%{$searchTerm}%");
+            });
         }
 
         $query->where('status', 1)

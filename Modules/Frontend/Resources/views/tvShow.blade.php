@@ -23,10 +23,13 @@
                                 <div class="movie-tag mb-3">
                                     <ul class="list-inline m-0 p-0 d-flex align-items-center flex-wrap movie-tag-list">
                                         @foreach($slider['genres'] as $genre)
+                                            @php
+                                                $tagName = app()->getLocale() === 'ar'
+                                                    ? ($genre['name_ar'] ?? $genre['name_en'] ?? $genre['name'] ?? '')
+                                                    : ($genre['name_en'] ?? $genre['name'] ?? '');
+                                            @endphp
                                             <li>
-                                                <a href="#" class="tag">{{ $genre['name'] }}</a>
-
-                                                {{-- <a href="{{ route('genre.movies', $genre['id']) }}" class="tag">{{ $genre['name'] }}</a> --}}
+                                                <a href="#" class="tag">{{ $tagName }}</a>
                                             </li>
                                         @endforeach
                                     </ul>

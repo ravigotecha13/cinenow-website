@@ -21,7 +21,7 @@
                             <div class="d-flex align-items-center">
                                 <ul class="actions-list list-inline m-0 p-0 d-flex align-items-center flex-wrap gap-3">
                                     <li>
-                                        <x-watchlist-button :entertainment-id="$data['id']" :in-watchlist="$data['is_watch_list']" :entertainmentType="$data['type']"
+                                        <x-watchlist-button :entertainment-id="$data['id']" :in-watchlist="$data['is_watch_list'] ?? false" :entertainmentType="$data['type']"
                                             customClass="watch-list-btn" />
                                     </li>
                                     <li class="position-relative share-button dropend dropdown">
